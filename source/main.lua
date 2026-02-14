@@ -2,6 +2,8 @@ import "CoreLibs/object"
 import "CoreLibs/graphics"
 import "CoreLibs/sprites"
 import "CoreLibs/timer"
+import "CoreLibs/ui"
+
 
 import "Core/UI"
 import "Game/Crossair"
@@ -14,6 +16,8 @@ local screenWidth = 400
 local screenHeight = 240
 
 local enemies = {}
+
+local Crossair = Crossair()
 
 -- Spawn system parameters (configurable)
 local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
@@ -172,6 +176,9 @@ function spawnEnemy()
     table.insert(enemies, e)
 end
 
+function aiming()
+    
+end
 
 function playdate.update()
     -- update game state
@@ -182,6 +189,9 @@ function playdate.update()
     
     -- draw enemies
     drawEnemies()
+    Crossair:draw(10, 10)
+    playdate.ui.crankIndicator:draw(1,1)
+
 end
 
 function drawEnemies()
