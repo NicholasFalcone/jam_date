@@ -17,3 +17,13 @@ function Input:HorizontalValue()
     end
     return h
 end
+
+function Input:VertiacalValue()
+    local v = 0
+    if playdate.buttonIsPressed(playdate.kButtonUp) then 
+        v = -1
+    elseif playdate.buttonIsPressed(playdate.kButtonDown) then 
+        v = 1 
+    end
+    return v
+end

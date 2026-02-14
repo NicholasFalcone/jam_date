@@ -6,19 +6,17 @@ import "CoreLibs/ui"
 
 
 import "Core/UI"
+import "Core/Input"
 import "Game/Crossair"
 import "Game/Enemy"
 import "Game/Weapon"
 
 local gfx = playdate.graphics
 
-local screenWidth = 400
-local screenHeight = 240
-
 local enemies = {}
 
 local Crossair = Crossair()
-
+local Input = Input()
 -- Spawn system parameters (configurable)
 local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
 local spawnAngleMin = -15
@@ -176,20 +174,24 @@ function spawnEnemy()
     table.insert(enemies, e)
 end
 
-function aiming()
-    
+
+
+function DoAim()
+    local h = Input:HorizontalValue()
+    local v = Input:VertiacalValue()
+    Crossair:move(h * 5, v * 5) -- move horizontally and verticaly based on input    
 end
 
 function playdate.update()
     -- update game state
     updateEnemies()
-
+    DoAim()
     gfx.clear()
     UI:draw()
     
     -- draw enemies
     drawEnemies()
-    Crossair:draw(10, 10)
+    Crossair:draw()
     playdate.ui.crankIndicator:draw(1,1)
 
 end
