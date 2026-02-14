@@ -174,15 +174,50 @@ end
 
 
 function playdate.update()
-    -- update game state
-    updateEnemies()
+    playdate.timer.updateTimers()
+
+    -- UI drives state transitions
+    local action = UI:update()
+
+    if gameState == "menu" then
+        if action == "play" then
+            resetGameplay()
+            gameState = "game"
+            UI:setScreen("hud")
+
+        elseif action == "howto" then
+            gameState = "howto"
+            UI:setScreen("howto")
+
+        elseif action == "credits" then
+            gameState = "credits"
+            UI:setScreen("credits")
+        end
+
+    elseif gameState == "howto" or gameState == "credits" then
+        if action == "back" then
+            gameState = "menu"
+            UI:setScreen("menu")
+        end
+
+    elseif gameState == "game" then
+        -- Optional: press B to go back to menu during gameplay
+        if playdate.buttonJustPressed(playdate.kButtonB) then
+            gameState = "menu"
+            UI:setScreen("menu")
+        end
+
+        updateEnemies()
+    end
 
     gfx.clear()
     UI:draw()
-    
-    -- draw enemies
-    drawEnemies()
+
+    if gameState == "game" then
+        drawEnemies()
+    end
 end
+
 
 function drawEnemies()
     for _, e in ipairs(enemies) do
