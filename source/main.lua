@@ -11,6 +11,7 @@ import "Core/Input"
 import "Game/Crossair"
 import "Game/Enemy"
 import "Game/Weapon"
+import "Game/Dice"
 
 local gfx = playdate.graphics
 
@@ -41,6 +42,11 @@ local lastTScaleTime = playdate.getElapsedTime()
 --- Enemy variables
 local enemySpeed = 0.005
 local enemyStartingHealth = 3
+
+--- Dices
+local dice1 = Dice()
+local dice2 = Dice()
+local dice3 = Dice()
 
 --- Inputs
 
@@ -104,7 +110,7 @@ function Init()
         local numericValue = tonumber(value)
         enemyStartingHealth = numericValue
         end)
-        
+
 end
 
 
@@ -230,6 +236,11 @@ function playdate.update()
         end
     end
 
+    if playdate.buttonJustPressed(playdate.kButtonA) then
+        rollDice()
+    end
+
+
     updateEnemies()
     DoAim()
     gfx.clear()
@@ -237,6 +248,7 @@ function playdate.update()
     Input.IsMovingForward()
 
     -- draw enemies
+    drawDice()
     drawEnemies()
     Crossair:draw()
     playdate.ui.crankIndicator:draw(1,1)
@@ -246,5 +258,19 @@ function drawEnemies()
     for _, e in ipairs(enemies) do
         e:draw(playerRotation)
     end
+end
+
+
+
+function rollDice()
+    dice1:roll()
+    dice2:roll()
+    dice3:roll()
+end 
+
+function drawDice()
+    dice1:draw(50, 50, false)
+    dice2:draw(100, 50, true)
+    dice3:draw(150, 50, true)
 end
 
