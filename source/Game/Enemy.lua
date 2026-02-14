@@ -14,7 +14,7 @@ function Enemy:init(speed)
 end
 
 
-function Enemy:update(weaponState, playerRotation)
+function Enemy:update(weaponState, playerRotation, crossX, crossY)
     if self.hitTimer > 0 then
         self.hitTimer -= 1
         if self.hitTimer <= 0 then
@@ -29,11 +29,30 @@ function Enemy:update(weaponState, playerRotation)
             self.isDead = true
         else
             if weaponState == "firing" then
-                local relAngle = (self.angle - playerRotation)
-                if math.abs(relAngle) < 5 then
-                    self:hit()
+                    -- compute enemy screen position and compare with crosshair
+                    local horizonY = 120
+                    local groundY = 240
+                    local relAngle = (self.angle - playerRotation)
+                    local ex = 200 + relAngle * 6
+                    local scale = 1.0 - self.distance
+                    local ey = horizonY + (scale * scale) * (groundY - horizonY)
+                    local size = 10 + scale * 80
+
+                    if crossX and crossY then
+                        local dx = math.abs(ex - crossX)
+                        local dy = math.abs(ey - crossY)
+                        local hitThresholdX = math.max(8, size * 0.4)
+                        local hitThresholdY = math.max(8, size * 0.4)
+                        if dx <= hitThresholdX and dy <= hitThresholdY then
+                            self:hit()
+                        end
+                    else
+                        -- fallback to angle-based check if no crosshair provided
+                        if math.abs(relAngle) < 5 then
+                            self:hit()
+                        end
+                    end
                 end
-            end
         end
     else
         if self.deathTimer > 0 then

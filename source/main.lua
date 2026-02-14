@@ -43,7 +43,7 @@ local enemySpeed = 0.005
 local enemyStartingHealth = 3
 
 --- Inputs
-local ticksPerRevolution = 6
+
 --- 
 
 ---Weapon
@@ -67,7 +67,9 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local currentWeapon = Weapon()
+local weaponTypes = {"Minigun", "Revolver", "Shotgun"}
+local currentWeaponIndex = 1
+local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex])
 
 local UI = UI()
 
@@ -173,7 +175,7 @@ function updateEnemies()
     -- update existing enemies and cleanup
     for i = #enemies, 1, -1 do
         local e = enemies[i]
-        e:update(currentWeapon.weaponState, playerRotation)
+        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y)
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
@@ -205,18 +207,39 @@ end
 
 function playdate.update()
     -- update game state
+    -- handle input: crank
+    local change = Input:getCrankChange()
+    if currentWeapon and currentWeapon.onCrankChange then
+        currentWeapon:onCrankChange(change)
+    end
+
+    -- update weapon internals (accel/decay and firing timing)
+    local now = playdate.getElapsedTime()
+    if currentWeapon and currentWeapon.update then
+        currentWeapon:update(now)
+    end
+
+    -- weapon switch (button B)
+    if playdate.buttonJustPressed(playdate.kButtonB) then
+        currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
+        local newType = weaponTypes[currentWeaponIndex]
+        if currentWeapon and currentWeapon.setType then
+            currentWeapon:setType(newType)
+        else
+            currentWeapon = Weapon.new(newType)
+        end
+    end
+
     updateEnemies()
     DoAim()
     gfx.clear()
     UI:draw()
-    -- Input:getCrankChange()
     Input.IsMovingForward()
-    
+
     -- draw enemies
     drawEnemies()
     Crossair:draw()
     playdate.ui.crankIndicator:draw(1,1)
-
 end
 
 function drawEnemies()
