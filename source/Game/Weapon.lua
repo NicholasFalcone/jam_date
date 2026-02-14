@@ -3,7 +3,7 @@ class('Weapon').extends()
 local gfx = playdate.graphics
 
 -- Base weapon class; specific weapons override parameters
-function Weapon:init(typeName)
+function Weapon:init(typeName, ammo)
 	self.weaponType = typeName or "Minigun"
 	self.weaponState = "idle" -- "idle", "winding", "firing"
 	self.windUpTime = 0
@@ -11,6 +11,7 @@ function Weapon:init(typeName)
 	self.firingFrame = 0
 	self.cooldownTime = 0
 	self.maxCooldown = 0
+	self.Ammo = ammo
 	self.autoFire = false
 	self:initByType(self.weaponType)
 end
@@ -61,6 +62,12 @@ function Weapon:initByType(t)
 		self.maxWindUp = 0
 		self.maxCooldown = 45
 		self.autoFire = false
+		-- Shotgun-specific parameters
+		self.Damage = 4
+		self.Shotgun_ArcSize = 360 -- degrees required for a complete rotation to fire
+		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
+		self.Shotgun_lastDir = 0 -- last crank direction seen
+		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
 	else
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -103,34 +110,35 @@ function Weapon:update(now)
 				self.weaponState = "idle"
 			end
 		end
-	else
-		-- generic cooldown tick
+	elseif self.weaponType == "Revolver" then
 		-- revolver: handle single-frame firing visibility
-		if self.weaponType == "Revolver" then
-			if self.Revolver_pendingFire then
-				self.weaponState = "firing"
-				self.Revolver_fireTicks = 1 -- keep firing visible for one frame (this frame -> enemies will be hit)
-				self.Revolver_pendingFire = false
-			end
-			if self.Revolver_fireTicks and self.Revolver_fireTicks > 0 then
-				-- decrement at next update cycle (so enemies see firing for exactly one frame)
-				self.Revolver_fireTicks = math.max(0, self.Revolver_fireTicks - 1)
-				if self.Revolver_fireTicks == 0 then
-					-- after the single visible firing tick, return to idle or remain cocked depending on stage
-					if self.Revolver_stage == 0 then
-						self.weaponState = "idle"
-					else
-						self.weaponState = "cocked"
-					end
+		if self.Revolver_pendingFire then
+			self.weaponState = "firing"
+			self.Revolver_fireTicks = 1 -- keep firing visible for one frame (this frame -> enemies will be hit)
+			self.Revolver_pendingFire = false
+		end
+		if self.Revolver_fireTicks and self.Revolver_fireTicks > 0 then
+			-- decrement at next update cycle (so enemies see firing for exactly one frame)
+			self.Revolver_fireTicks = math.max(0, self.Revolver_fireTicks - 1)
+			if self.Revolver_fireTicks == 0 then
+				-- after the single visible firing tick, return to idle or remain cocked depending on stage
+				if self.Revolver_stage == 0 then
+					self.weaponState = "idle"
+				else
+					self.weaponState = "cocked"
 				end
 			end
-			if self.cooldownTime > 0 then
-				self.cooldownTime = math.max(0, self.cooldownTime - 1)
-			end
-		else
-			if self.cooldownTime > 0 then
-				self.cooldownTime = math.max(0, self.cooldownTime - 1)
-			end
+		end
+		if self.cooldownTime > 0 then
+			self.cooldownTime = math.max(0, self.cooldownTime - 1)
+		end
+	elseif self.weaponType == "Shotgun" then
+		if self.cooldownTime > 0 then
+			self.cooldownTime = math.max(0, self.cooldownTime - 1)
+		end
+	else
+		if self.cooldownTime > 0 then
+			self.cooldownTime = math.max(0, self.cooldownTime - 1)
 		end
 	end
 end
@@ -210,6 +218,59 @@ function Weapon:onCrankChange(change)
 				self.weaponState = "cocked"
 			end
 		end
+	elseif self.weaponType == "Shotgun" then
+		-- Initialize shotgun properties if not already done
+		if not self.Shotgun_accum then
+			self.Shotgun_accum = 0
+			self.Shotgun_lastDir = 0
+		end
+		-- Shotgun behavior: full 360-degree rotation to fire
+		if not change or change == 0 then return end
+		local dir = 0
+		if change > 0 then dir = 1 elseif change < 0 then dir = -1 end
+		local absc = math.abs(change)
+		-- Check if still in cooldown
+		if self.cooldownTime > 0 then
+			-- during cooldown, crank input has no effect
+			self.weaponState = "idle"
+			return
+		end
+		-- Check if direction changed
+		if dir ~= (self.Shotgun_lastDir or 0) and (self.Shotgun_lastDir or 0) ~= 0 then
+			-- direction changed: reset accumulation
+			self.Shotgun_accum = 0
+		end
+		self.Shotgun_lastDir = dir
+		-- accumulate rotation in current direction
+		self.Shotgun_accum = (self.Shotgun_accum or 0) + absc
+		self.weaponState = "winding"
+		-- check if a complete rotation has been achieved
+		if (self.Shotgun_accum or 0) >= (self.Shotgun_ArcSize or 360) then
+			-- check if we have enough ammo (2 required, but 1 works too)
+			if (self.Ammo or 0) >= 1 then
+				-- fire the shotgun
+				self.weaponState = "firing"
+				self.Revolver_fireTicks = 1
+				-- consume ammo (2 if available, else 1)
+				if (self.Ammo or 0) >= 2 then
+					self.Ammo = self.Ammo - 2
+				else
+					self.Ammo = (self.Ammo or 1) - 1
+				end
+				-- set cooldown
+				self.cooldownTime = self.maxCooldown
+				-- reset accumulation and direction
+				self.Shotgun_accum = 0
+				self.Shotgun_lastDir = 0
+				self.firingFrame = self.firingFrame + 1
+			else
+				-- out of ammo: reset but don't fire
+				self.Shotgun_accum = 0
+				self.Shotgun_lastDir = 0
+				self.weaponState = "idle"
+			end
+		end
+		self.firingFrame = self.firingFrame + math.floor(absc/2) + 1
 	else
 		-- simple handling for other weapons (existing behavior)
 		if math.abs(change) > 1 then
@@ -312,10 +373,19 @@ function Weapon:draw()
 		end
 
 	elseif self.weaponType == "Shotgun" then
-		-- simple long barrel
+		-- pump shotgun visual
 		gfx.setColor(gfx.kColorWhite)
+		-- long barrel
 		gfx.fillRect(cx - 60, cy - 18, 110, 20)
+		-- pump handle with movement based on rotation progress
+		local pumpOffset = 0
+		if self.weaponState == "winding" then
+			pumpOffset = (self.Shotgun_accum / (self.Shotgun_ArcSize or 360)) * 8
+		end
 		gfx.setColor(gfx.kColorBlack)
+		gfx.fillRect(cx + 30 + pumpOffset, cy - 8, 14, 8)
+		-- muzzle
+		gfx.setColor(gfx.kColorWhite)
 		gfx.fillRect(cx + 44, cy - 14, 8, 12)
 		if self.weaponState == "firing" then
 			drawFlash(cx + 54, cy - 8)
