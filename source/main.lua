@@ -3,6 +3,7 @@ import "CoreLibs/graphics"
 import "CoreLibs/sprites"
 import "CoreLibs/timer"
 import "CoreLibs/ui"
+import "CoreLibs/crank"
 
 
 import "Core/UI"
@@ -37,6 +38,16 @@ local lastSpawnTime = playdate.getElapsedTime()
 local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
+--- Enemy variables
+local enemySpeed = 0.005
+local enemyStartingHealth = 3
+
+--- Inputs
+local ticksPerRevolution = 6
+--- 
+
+---Weapon
+
 local function clamp(v, a, b)
     if v < a then return a end
     if v > b then return b end
@@ -67,23 +78,31 @@ function Init()
 
     -- Definiamo i valori dello "slider"
     local sliderOptions = {"1", "3", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"}
+    local enemyHealthSliderOptions = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
+    --- Spawning menu item variables
+    -- menu:addOptionsMenuItem("N_STm:", sliderOptions, N_ScaleTime, function(value)
+    --     local numericValue = tonumber(value)
+    --     N_ScaleTime = numericValue
+    --     end)
+    -- menu:addOptionsMenuItem("N_SVle:",sliderOptions, N_ScaleValue, function(value)
+    --     local numericValue = tonumber(value)
+    --     N_ScaleValue = numericValue
+    --     end)
+    -- menu:addOptionsMenuItem("T_STm:",sliderOptions, T_ScaleTime, function(value)
+    --     local numericValue = tonumber(value)
+    --     T_ScaleTime = numericValue
+    --     end)
+    -- menu:addOptionsMenuItem("T_SVle:",sliderOptions, T_ScaleValue, function(value)
+    --     local numericValue = tonumber(value)
+    --     T_ScaleValue = numericValue
+    --     end)
 
-    menu:addOptionsMenuItem("N_STm:", sliderOptions, N_ScaleTime, function(value)
+    --- Enemy menu item variables
+    menu:addOptionsMenuItem("E..my H:",enemyHealthSliderOptions, enemyStartingHealth, function(value)
         local numericValue = tonumber(value)
-        N_ScaleTime = numericValue
+        enemyStartingHealth = numericValue
         end)
-    menu:addOptionsMenuItem("N_SVle:",sliderOptions, N_ScaleValue, function(value)
-        local numericValue = tonumber(value)
-        N_ScaleValue = numericValue
-        end)
-    menu:addOptionsMenuItem("T_STm:",sliderOptions, T_ScaleTime, function(value)
-        local numericValue = tonumber(value)
-        T_ScaleTime = numericValue
-        end)
-    menu:addOptionsMenuItem("T_SVle:",sliderOptions, T_ScaleValue, function(value)
-        local numericValue = tonumber(value)
-        T_ScaleValue = numericValue
-        end)
+        
 end
 
 
@@ -171,6 +190,8 @@ function spawnEnemy()
     local e = Enemy()
     e.angle = pts[idx]
     e.spawnIndex = idx
+    e.speed = enemySpeed
+    e.health = enemyStartingHealth
     table.insert(enemies, e)
 end
 
@@ -188,6 +209,8 @@ function playdate.update()
     DoAim()
     gfx.clear()
     UI:draw()
+    -- Input:getCrankChange()
+    Input.IsMovingForward()
     
     -- draw enemies
     drawEnemies()

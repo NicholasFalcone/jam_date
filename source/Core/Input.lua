@@ -8,6 +8,24 @@ function Input:update()
     
 end
 
+function Input:getCrankChange()
+    local change = playdate.getCrankChange()
+    return change
+end
+
+local ticksPerRevolution = 6
+
+function Input:IsMovingForward()
+    local crankTicks = playdate.getCrankTicks(ticksPerRevolution)
+    if crankTicks == 1 then
+        print("Moving forward")
+        return true
+    elseif crankTicks == -1 then
+        print("Moving backward")
+        return false
+    end
+end
+
 function Input:HorizontalValue()
     local h = 0
     if playdate.buttonIsPressed(playdate.kButtonLeft) then 

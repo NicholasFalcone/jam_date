@@ -2,7 +2,7 @@ class('Enemy').extends()
 
 local gfx = playdate.graphics
 
-function Enemy:init()
+function Enemy:init(speed)
     self.angle = math.random(-15, 15)
     self.distance = 1.0
     self.isDead = false
@@ -10,6 +10,7 @@ function Enemy:init()
     self.hitTimer = 0  -- Timer per l'effetto hit
     self.deathTimer = 0
     self.health = 3  -- Richiede 3 colpi per morire
+    self.speed = 0.005
 end
 
 
