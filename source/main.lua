@@ -235,7 +235,7 @@ function playdate.update()
             currentWeapon = Weapon.new(newType)
         end
     end
-
+    --- testing dice roll with button A
     if playdate.buttonJustPressed(playdate.kButtonA) then
         rollDice()
     end
@@ -250,6 +250,7 @@ function playdate.update()
     -- draw enemies
     drawDice()
     drawEnemies()
+    if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
     Crossair:draw()
     playdate.ui.crankIndicator:draw(1,1)
 end
