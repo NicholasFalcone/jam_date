@@ -77,7 +77,7 @@ local spawnPoints = computeSpawnPoints()
 
 local weaponTypes = {"Minigun", "Revolver", "Shotgun"}
 local currentWeaponIndex = 1
-local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex])
+local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
 local UI = UI()
 

@@ -4,7 +4,7 @@ local gfx = playdate.graphics
 local audioManager = AudioManager()
 
 -- Base weapon class; specific weapons override parameters
-function Weapon:init(typeName, ammo)
+function Weapon:init(typeName, ammo, crosshair)
 	self.weaponType = typeName or "Minigun"
 	self.weaponState = "idle" -- "idle", "winding", "firing"
 	self.windUpTime = 0
@@ -14,6 +14,7 @@ function Weapon:init(typeName, ammo)
 	self.maxCooldown = 0
 	self.Ammo = ammo
 	self.autoFire = false
+	self.crosshair = crosshair
 	self:initByType(self.weaponType)
 end
 
@@ -41,6 +42,10 @@ function Weapon:initByType(t, ammo)
 		self.Minigun_sfxShot = audioManager:loadSample("sounds/minigun_shot")
 		self.Minigun_sfxRotation = audioManager:loadSample("sounds/SFX_MinigunRotation_loop")
 		self.Minigun_rotationPlaying = false
+		-- Set crosshair hit radius
+		if self.crosshair then
+			self.crosshair.hitRadius = 0  -- Minigun: precise targeting
+		end
 	elseif t == "Revolver" then
 		self.maxWindUp = 0
 		self.maxCooldown = 0
@@ -59,6 +64,10 @@ function Weapon:initByType(t, ammo)
 
 		self.Revolver_sfxClick = audioManager:loadSample("sounds/revolver_click")
 		self.Revolver_sfxShot = audioManager:loadSample("sounds/revolver_shot")
+		-- Set crosshair hit radius
+		if self.crosshair then
+			self.crosshair.hitRadius = 0  -- Revolver: precise targeting
+		end
 	elseif t == "Shotgun" then
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -76,6 +85,10 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_pendingFire = false
 		self.Shotgun_sfxShot = audioManager:loadSample("sounds/shotgun_shot")
 		self.Shotgun_sfxPump = audioManager:loadSample("sounds/revolver_click") -- Placeholder for pump SFX
+		-- Set crosshair hit radius for area damage
+		if self.crosshair then
+			self.crosshair.hitRadius = 50  -- Shotgun: area of effect damage
+		end
 	else
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -695,6 +708,6 @@ function Weapon:getShotgunReloadFrameIndex(frames)
 end
 
 -- Factory helper
-function Weapon.new(t)
-	return Weapon(t, 20) -- default to 100 ammo for testing
+function Weapon.new(t, crosshair)
+	return Weapon(t, 20, crosshair) -- default to 20 ammo for testing
 end

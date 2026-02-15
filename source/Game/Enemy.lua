@@ -53,11 +53,27 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
                         local ey_center = ey - size / 2
                         local dx = math.abs(ex - crossX)
                         local dy = math.abs(ey_center - crossY)
-                        -- Larger hitbox to cover the entire enemy sprite
-                        local hitThresholdX = math.max(12, size * 0.5)
-                        local hitThresholdY = math.max(16, size * 0.6)
+                        
+                        -- Check if crosshair has a hit radius (for shotgun)
+                        local hitRadius = 0
+                        if weapon.crosshair and weapon.crosshair.hitRadius then
+                            hitRadius = weapon.crosshair.hitRadius
+                        end
+                        
+                        local inRange = false
+                        if hitRadius > 0 then
+                            -- Use circular distance check for area of effect
+                            local distance = math.sqrt(dx * dx + dy * dy)
+                            inRange = distance <= hitRadius
+                        else
+                            -- Standard rectangular hitbox
+                            local hitThresholdX = math.max(12, size * 0.5)
+                            local hitThresholdY = math.max(16, size * 0.6)
+                            inRange = dx <= hitThresholdX and dy <= hitThresholdY
+                        end
+                        
                         -- Only take damage if weapon has ammo (lastShotValid)
-                        if dx <= hitThresholdX and dy <= hitThresholdY and (weapon and weapon.lastShotValid) then
+                        if inRange and (weapon and weapon.lastShotValid) then
                             self:hit(weapon.Damage)
                         end
                     else
