@@ -45,6 +45,9 @@ function GameManager:init()
 	-- GAME OVER UI assets (put in: source/images/ui/)
 	self.gameOverBg = gfx.image.new("images/ui/GAME_OVER_3-dithered")
 	self.gameOverSelector = gfx.image.new("images/ui/Bullet_Revolver_White")
+	
+	-- Rolling screen image
+	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
 
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
@@ -400,16 +403,28 @@ end
 
 function GameManager:drawRollingScreen(g)
 	g.setColor(g.kColorWhite)
+	g.fillRect(0, 0, 400, 240)
 	
 	if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
-		local prompt = "SWING THE CONSOLE TO ROLL!"
-		if not playdate.readAccelerometer then
-			prompt = "PRESS A TO ROLL!"
+		-- Display the shake image centered on screen
+		if self.shakeItImage then
+			local imgW, imgH = self.shakeItImage:getSize()
+			local x = math.floor((400 - imgW) / 2)
+			local y = math.floor((240 - imgH) / 2)
+			self.shakeItImage:draw(x, y)
+		else
+			-- Fallback to text if image not loaded
+			local prompt = "SWING THE CONSOLE TO ROLL!"
+			if not playdate.readAccelerometer then
+				prompt = "PRESS A TO ROLL!"
+			end
+			g.setColor(g.kColorBlack)
+			g.drawTextAligned(prompt, 200, 100, kTextAlignment.center)
 		end
-		g.drawTextAligned(prompt, 200, 100, kTextAlignment.center)
 		return
 	end
 
+	g.setColor(g.kColorBlack)
 	g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
 
 	if self.weaponDice then
