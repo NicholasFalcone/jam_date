@@ -14,7 +14,7 @@ function Enemy:init(speed)
 end
 
 
-function Enemy:update(weaponState, playerRotation, crossX, crossY)
+function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon)
     if self.hitTimer > 0 then
         self.hitTimer -= 1
         if self.hitTimer <= 0 then
@@ -46,7 +46,8 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY)
                         -- Larger hitbox to cover the entire enemy sprite
                         local hitThresholdX = math.max(12, size * 0.5)
                         local hitThresholdY = math.max(16, size * 0.6)
-                        if dx <= hitThresholdX and dy <= hitThresholdY then
+                        -- Only take damage if weapon has ammo (lastShotValid)
+                        if dx <= hitThresholdX and dy <= hitThresholdY and (weapon and weapon.lastShotValid) then
                             self:hit()
                         end
                     else

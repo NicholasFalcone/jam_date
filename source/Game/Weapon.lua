@@ -245,16 +245,12 @@ function Weapon:onCrankChangeShotgun(change)
 	self:setState("winding")
 	
 	if (self.Shotgun_accum or 0) >= (self.Shotgun_ArcSize or 360) then
-		-- Try to fire (consumes 2 ammo, but works with 1)
-		if self:fire(2) then
-			self:startCooldown()
-			self.Shotgun_accum = 0
-			self.Shotgun_lastDir = 0
-		else
-			self.Shotgun_accum = 0
-			self.Shotgun_lastDir = 0
-			self:setState("idle")
-		end
+		-- Fire (returns true if had ammo, but fires anyway even at 0 ammo)
+		self:fire(2)
+		-- Always start cooldown and reset on complete rotation
+		self:startCooldown()
+		self.Shotgun_accum = 0
+		self.Shotgun_lastDir = 0
 	end
 	self:bumpFireFrame(change)
 end
@@ -334,27 +330,30 @@ end
 -- Central fire logic: handles ammo, sounds, and firing state
 function Weapon:fire(ammoConsumption)
 	ammoConsumption = ammoConsumption or 1
+	local hadAmmo = false
 	
 	-- Check if we have enough ammo
-	if (self.Ammo or 0) < ammoConsumption then
-		-- Try with reduced ammo if available
-		if (self.Ammo or 0) >= 1 then
-			ammoConsumption = self.Ammo
-		else
-			return false
-		end
+	if (self.Ammo or 0) >= ammoConsumption then
+		-- Enough ammo: consume requested amount
+		self:consumeAmmo(ammoConsumption)
+		hadAmmo = true
+	elseif (self.Ammo or 0) >= 1 then
+		-- Not enough: consume what we have
+		self:consumeAmmo(self.Ammo)
+		hadAmmo = true
 	end
+	-- If ammo == 0, still fire animation but hadAmmo = false (no damage)
 	
-	-- Consume ammo
-	self:consumeAmmo(ammoConsumption)
+	-- Store if this shot is valid (had ammo) for damage calculation
+	self.lastShotValid = hadAmmo
 	
 	-- Play weapon sound if available
 	self:playFireSound()
 	
-	-- Trigger firing state and visuals
+	-- Trigger firing state and visuals - ALWAYS, even with 0 ammo
 	self:triggerFire()
 	
-	return true
+	return hadAmmo  -- true if we had ammo to consume, false if we fired empty
 end
 
 -- Play weapon-specific fire sound

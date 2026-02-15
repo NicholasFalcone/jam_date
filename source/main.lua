@@ -181,7 +181,7 @@ function updateEnemies()
     -- update existing enemies and cleanup
     for i = #enemies, 1, -1 do
         local e = enemies[i]
-        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y)
+        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y, currentWeapon)
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
