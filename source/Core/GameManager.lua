@@ -79,15 +79,6 @@ function GameManager:update(deltaTime)
 	end
 end
 
-function GameManager:resetGame()
-	-- Reset all game variables
-	self.score = 0
-	self.waveCount = 0
-	self.timeAlive = 0
-	self.enemiesDefeated = 0
-	self.playerHealth = self.maxPlayerHealth
-end
-
 function GameManager:setState(newState)
 	if newState == self.currentState then return end
 
@@ -134,10 +125,12 @@ function GameManager:isRolling() return self.currentState == GAME_STATE.ROLLING 
 local music = nil
 
 function GameManager:onIdleEnter()
-	-- Reset all game variables
-	self:resetGame()
+	self.score = 0
+	self.waveCount = 0
+	self.timeAlive = 0
+	self.enemiesDefeated = 0
+	self.playerHealth = self.maxPlayerHealth
 
-	print("Idle state entered.")
 	if self.ui and self.ui.setScreen then
 		self.ui:setScreen("menu")
 	end
@@ -289,7 +282,7 @@ local function formatTimeHMS(seconds)
 	s = s - h * 3600
 	local m = math.floor(s / 60)
 	s = s - m * 60
-	return string.format("%02d:%02d", m, s)
+	return string.format("%02d:%02d:%02d", h, m, s)
 end
 
 function GameManager:drawGameOverScreen(g)
@@ -355,20 +348,6 @@ function GameManager:drawGameOverScreen(g)
 	end
 
 	g.setImageDrawMode(prevMode)
-
-	-- Draw button text labels in BLACK with smaller font and better positioning
-	g.setColor(g.kColorBlack)
-	
-	-- Use a smaller font for the button text
-	local smallFont = gfx.font.new('font/Asheville-Sans-14-Bold')
-	if smallFont then 
-		gfx.setFont(smallFont)
-	end
-	
-	local buttonTextX = 200
-	-- Adjust Y positions to better center text inside buttons
-	g.drawTextAligned("PLAY AGAIN", buttonTextX, playAgainCenterY - 6, kTextAlignment.center)
-	g.drawTextAligned("MAIN MENU", buttonTextX, mainMenuCenterY - 6, kTextAlignment.center)
 end
 
 function GameManager:drawRollingScreen(g)
