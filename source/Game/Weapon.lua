@@ -186,21 +186,29 @@ function Weapon:updateRevolver(now)
 end
 
 function Weapon:updateShotgun()
+	-- Handle firing animation ticks
 	if self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0 then
 		self:setState("firing")
 		local shootFrames = self.Shotgun_shootFrames
 		local totalNumFrames = (shootFrames and #shootFrames) or 3
 		local totalTicks = totalNumFrames * 2 -- 2 internal ticks per animation frame
-		
+
 		local currentFrame = math.floor((totalTicks - self.Shotgun_fireTicks) / 2) + 1
 		self.Shotgun_fireFrameIndex = math.max(1, math.min(totalNumFrames, currentFrame))
-		
+
 		self.Shotgun_fireTicks = self.Shotgun_fireTicks - 1
 	elseif self.weaponState == "firing" then
-		-- Animation completely finished
+		-- Firing animation finished: return to idle (single frame)
 		self:setState("idle")
 	end
+
+	-- Update cooldown timer
 	self:updateCooldown()
+
+	-- If we were explicitly reloading, exit to idle when cooldown finishes
+	if self.weaponState == "reloading" and not self:isOnCooldown() then
+		self:setState("idle")
+	end
 end
 
 function Weapon:onCrankChange(change)
@@ -295,30 +303,51 @@ function Weapon:onCrankChangeRevolverFire(dir, absc)
 end
 
 function Weapon:onCrankChangeShotgun(change)
+	-- Crank stopped: if we recently fired, start reload now
 	if not change or change <= 0 then 
 		self.Shotgun_accum = 0
-		if self.weaponState ~= "firing" then
-			self:setState("idle")
+
+		if self.Shotgun_pendingReload then
+			-- start reload only when user stops moving the crank
+			self:startCooldown()
+			self.Shotgun_pendingReload = false
+			self:setState("reloading")
+		else
+			if self.weaponState ~= "firing" then
+				-- remain in reloading if cooldown active, otherwise go idle
+				if not (self.cooldownTime and self.cooldownTime > 0) then
+					self:setState("idle")
+				end
+			end
 		end
 		return 
 	end
-	
+
+	-- Don't allow winding if currently cooling down or in firing animation
 	if self.weaponState == "firing" or (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0) then 
 		return 
 	end
+	if self.cooldownTime and self.cooldownTime > 0 then
+		return
+	end
+	-- If we've already fired and are waiting for the crank to stop, ignore further crank input
+	if self.Shotgun_pendingReload then
+		return
+	end
 
+	-- Accumulate crank motion and show winding state
 	self.Shotgun_accum = (self.Shotgun_accum or 0) + change
 	self:setState("winding")
-	
+
 	if self.Shotgun_accum >= (self.Shotgun_ArcSize or 360) then
-		-- Fire (returns true if had ammo, but fires anyway even at 0 ammo)
+		-- Fire: consume ammo and play shot animation
 		self:fire(2)
 		local shootFrames = self.Shotgun_shootFrames
 		local totalNumFrames = (shootFrames and #shootFrames) or 3
 		self.Shotgun_fireTicks = totalNumFrames * 2 -- Start with duration stretching
 		self.Shotgun_fireFrameIndex = 1
-		-- Always start cooldown and reset on complete rotation
-		self:startCooldown()
+		-- DO NOT start cooldown now; wait until crank movement ends
+		self.Shotgun_pendingReload = true
 		self.Shotgun_accum = 0
 	end
 end
@@ -535,6 +564,7 @@ function Weapon:drawRevolver(cx, cy)
 end
 
 function Weapon:drawShotgun(cx, cy)
+	-- Firing animation takes precedence
 	local isFiring = (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0) or (self.weaponState == "firing")
 	if isFiring then
 		local shootFrames = self.Shotgun_shootFrames
@@ -550,14 +580,27 @@ function Weapon:drawShotgun(cx, cy)
 
 	local reloadFrames = self.Shotgun_reloadFrames
 	if reloadFrames and #reloadFrames > 0 then
-		local reloadIndex = self.Shotgun_idleFrameIndex or 1
-		if self.weaponState ~= "idle" then
-			reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
+		-- Idle: single-frame (index stored in Shotgun_idleFrameIndex)
+		if self.weaponState == "idle" then
+			local idx = self.Shotgun_idleFrameIndex or 1
+			local idleFrame = reloadFrames[idx]
+			if idleFrame and idleFrame.drawCentered then idleFrame:drawCentered(cx, cy) end
+			return
 		end
-		local reloadFrame = reloadFrames[reloadIndex]
-		if reloadFrame and reloadFrame.drawCentered then
-			reloadFrame:drawCentered(cx, cy)
+
+		-- If we're reloading or on cooldown, map reload frames to cooldown progress
+		if self.weaponState == "reloading" or self:isOnCooldown() then
+			local total = self.maxCooldown or 1
+			local progress = math.max(0, math.min(1, (total - (self.cooldownTime or 0)) / total))
+			local idx = math.floor(progress * (#reloadFrames - 1)) + 1
+			local reloadFrame = reloadFrames[math.max(1, math.min(#reloadFrames, idx))]
+			if reloadFrame and reloadFrame.drawCentered then reloadFrame:drawCentered(cx, cy) end
+			return
 		end
+
+		-- Fallback: show first reload frame
+		local fallback = reloadFrames[self.Shotgun_idleFrameIndex or 1]
+		if fallback and fallback.drawCentered then fallback:drawCentered(cx, cy) end
 	end
 end
 
