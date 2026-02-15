@@ -28,8 +28,8 @@ local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
 local spawnAngleMin = -15
 local spawnAngleMax = 15
 
-local spawnN = 1 -- N: number of enemies per spawn (min 1)
-local spawnT = 5 -- T: time between spawns in seconds
+local spawnN = 2 -- N: number of enemies per spawn (min 1)
+local spawnT = 3 -- T: time between spawns in seconds
 local spawnMinT = 0.5 -- minimum allowed spawn interval (seconds)
 
 -- Scaling parameters
