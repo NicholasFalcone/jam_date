@@ -22,6 +22,8 @@ function Weapon:initByType(t, ammo)
 		self.maxWindUp = 25
 		self.maxCooldown = 10
 		self.autoFire = true
+		self.Minigun_frames = self:loadMinigunFrames()
+		self.Minigun_idleFrameIndex = 1
 		-- Minigun specific params
 		self.MinCrankSpeed = 5 -- minimum crank delta to count as forward shooting
 		self.FireRate_Min = 1 -- initial time between shots (seconds)
@@ -372,10 +374,6 @@ function Weapon:draw()
 	local w = 140
 	local h = 48
 
-	-- shadow / ground plate
-	gfx.setColor(gfx.kColorBlack)
-	gfx.fillRect(cx - w/2, cy - h/2 + 6, w, h)
-
 	-- dispatch to weapon-specific draw
 	if self.weaponType == "Minigun" then
 		self:drawMinigun(cx, cy)
@@ -396,18 +394,18 @@ function Weapon:drawFlash(x, y)
 end
 
 function Weapon:drawMinigun(cx, cy)
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(cx - 30, cy - 18, 60, 30)
-	local bx = cx + 40
-	local by = cy - 6
-	for i = 0, 3 do
-		local ang = (self.firingFrame * 8 + i * 90) % 360
-		local rx = bx + math.cos(math.rad(ang)) * 16
-		local ry = by + math.sin(math.rad(ang)) * 4
-		gfx.drawLine(bx, by, rx, ry)
+	if self.Minigun_frames and #self.Minigun_frames > 0 then
+		local frameIndex = self.Minigun_idleFrameIndex or 1
+		if self.weaponState ~= "idle" then
+			frameIndex = (self.firingFrame % #self.Minigun_frames) + 1
+		end
+		local frame = self.Minigun_frames[frameIndex]
+		if frame and frame.drawCentered then
+			frame:drawCentered(cx, cy)
+		end
 	end
 	if self.weaponState == "firing" then
-		self:drawFlash(bx + 22, by)
+		self:drawFlash(cx + 54, cy - 8)
 	end
 end
 
@@ -463,6 +461,19 @@ function Weapon:drawDefault(cx, cy)
 	if self.weaponState == "firing" then
 		self:drawFlash(cx + 40, cy - 8)
 	end
+end
+
+function Weapon:loadMinigunFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/Minigun_rotation/Minigun_rotation - "
+	local frameNumbers = {21, 22, 23, 26, 27, 28}
+	for _, n in ipairs(frameNumbers) do
+		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
 end
 
 -- Factory helper

@@ -17,7 +17,7 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.SFX_Death = audioManager:loadSample("SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("SFX_EnemyHit")
     self.SFX_EnemyReachesPlayer = audioManager:loadSample("SFX_EnemyReachesPlayer")
-    
+    self.enemyGoalPosition = 0.1 --- Offset from 0 to trigger player damage (reaching the "ground")
     -- Load enemy sprite
     self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
 end
@@ -32,7 +32,7 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
 
     if not self.isDead then
         self.distance -= 0.005
-        if self.distance <= 0 then
+        if self.distance <= self.enemyGoalPosition then
             if(self.SFX_EnemyReachesPlayer) then
                 pcall(function() self.SFX_EnemyReachesPlayer:play(1) end)
             end
