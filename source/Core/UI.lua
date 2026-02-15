@@ -439,7 +439,6 @@ function UI:draw(currentWeapon)
             drawCenteredText(prefix .. label, startY + (i - 1) * lineH)
         end
 
-        gfx.drawText("Arrows/Crank: Select   A: Confirm", 10, 220)
         return
     end
 
