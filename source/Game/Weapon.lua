@@ -87,7 +87,7 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_sfxPump = audioManager:loadSample("sounds/revolver_click") -- Placeholder for pump SFX
 		-- Set crosshair hit radius for area damage
 		if self.crosshair then
-			self.crosshair.hitRadius = 50  -- Shotgun: area of effect damage
+			self.crosshair.hitRadius = 25  -- Shotgun: area of effect damage
 		end
 	else
 		self.maxWindUp = 0
