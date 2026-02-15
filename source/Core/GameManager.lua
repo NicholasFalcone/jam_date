@@ -380,9 +380,9 @@ function GameManager:drawGameOverScreen(g)
 	-- g.drawText("Enemies: " .. self.enemiesDefeated, 10, 100)
 
 	-- Selector bullet (aligned to the buttons)
-	local selectorX = 120
+	local selectorX = 108  
 	local playAgainCenterY = 150
-	local mainMenuCenterY  = 178
+	local mainMenuCenterY  = 181  -- Adjusted for better vertical centering
 
 	local bw, bh = 12, 6
 	if self.gameOverSelector then
