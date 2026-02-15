@@ -8,6 +8,7 @@ import "CoreLibs/crank"
 
 import "Core/UI"
 import "Core/Input"
+import "Core/GameManager"
 import "Game/Crossair"
 import "Game/Enemy"
 import "Game/Weapon"
@@ -16,6 +17,7 @@ import "Game/Dice"
 local gfx = playdate.graphics
 
 local enemies = {}
+local gameManager = GameManager()
 
 local Crossair = Crossair()
 local Input = Input()
@@ -25,7 +27,7 @@ local spawnAngleMin = -15
 local spawnAngleMax = 15
 
 local spawnN = 1 -- N: number of enemies per spawn (min 1)
-local spawnT = 2.0 -- T: time between spawns in seconds
+local spawnT = 10.0 -- T: time between spawns in seconds
 local spawnMinT = 0.25 -- minimum allowed spawn interval (seconds)
 
 -- Scaling parameters
@@ -181,7 +183,7 @@ function updateEnemies()
     -- update existing enemies and cleanup
     for i = #enemies, 1, -1 do
         local e = enemies[i]
-        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y, currentWeapon)
+        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
@@ -242,19 +244,47 @@ function playdate.update()
         rollDice()
     end
 
+    -- Handle state transitions via crank button
+    if playdate.buttonJustPressed(playdate.kButtonA) then
+        if gameManager:isIdle() then
+            -- Reset game state and enemy list before starting
+            enemies = {}
+            -- Reset spawn manager variables
+            lastSpawnTime = playdate.getElapsedTime()
+            lastNScaleTime = playdate.getElapsedTime()
+            lastTScaleTime = playdate.getElapsedTime()
+            spawnN = 1  -- Reset to 1 enemy per spawn
+            spawnT = 10.0  -- Reset spawn interval
+            gameManager:setState("running")
+        elseif gameManager:isGameOver() then
+            gameManager:setState("idle")
+        end
+    end
 
-    updateEnemies()
-    DoAim()
+    -- Only update game if running
+    if gameManager:isRunning() then
+        updateEnemies()
+        DoAim()
+        gameManager:update(0.016) -- ~60 FPS
+    end
+
     gfx.clear()
-    UI:draw(currentWeapon)
-    Input.IsMovingForward()
 
-    -- draw enemies
-    drawDice()
-    drawEnemies()
-    if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
-    Crossair:draw()
-    playdate.ui.crankIndicator:draw(1,1)
+    -- Draw state-specific screens
+    if gameManager:isIdle() or gameManager:isGameOver() then
+        gameManager:drawStateScreen(gfx)
+    else
+        -- Draw gameplay UI
+        UI:draw(currentWeapon)
+        Input.IsMovingForward()
+        
+        -- draw enemies
+        drawDice()
+        drawEnemies()
+        if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
+        Crossair:draw()
+        playdate.ui.crankIndicator:draw(1,1)
+    end
 end
 
 function drawEnemies()

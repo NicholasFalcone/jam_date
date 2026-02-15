@@ -14,7 +14,7 @@ function Enemy:init(speed)
 end
 
 
-function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon)
+function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon, gameManager)
     if self.hitTimer > 0 then
         self.hitTimer -= 1
         if self.hitTimer <= 0 then
@@ -25,7 +25,10 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon)
     if not self.isDead then
         self.distance -= 0.005
         if self.distance <= 0 then
-            -- reached player, mark dead for removal
+            -- reached player, trigger game over
+            if gameManager then
+                gameManager:takeDamage(100)
+            end
             self.isDead = true
         else
             if weaponState == "firing" then
