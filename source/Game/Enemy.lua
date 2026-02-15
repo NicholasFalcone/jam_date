@@ -17,6 +17,9 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.SFX_Death = audioManager:loadSample("SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("SFX_EnemyHit")
     self.SFX_EnemyReachesPlayer = audioManager:loadSample("SFX_EnemyReachesPlayer")
+    
+    -- Load enemy sprite
+    self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
 end
 
 function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
@@ -116,34 +119,34 @@ function Enemy:draw(playerRotation)
         gfx.fillCircleAtPoint(x, y - size/2, size * 1.5)
         gfx.setColor(gfx.kColorWhite)
         gfx.fillCircleAtPoint(x, y - size/2, size)
-    elseif self.isHitted then
-        -- Effetto sangue (splash)
-        gfx.setColor(gfx.kColorWhite)
-        for i = 0, 7 do
-            local angle = math.rad(i * 45 + math.random(-10, 10))
-            local len = size * 0.3 + math.random(0, math.max(1, math.floor(size * 0.2)))
-            local startX = x + math.cos(angle) * size * 0.3
-            local startY = (y - size/2) + math.sin(angle) * size * 0.3
-            local endX = startX + math.cos(angle) * len
-            local endY = startY + math.sin(angle) * len
-            gfx.drawLine(startX, startY, endX, endY)
-        end
-        for i = 1, 5 do
-            local maxOffset = math.max(1, math.floor(size/2))
-            local dropX = x + math.random(-maxOffset, maxOffset)
-            local dropY = (y - size/2) + math.random(-maxOffset, maxOffset)
-            gfx.fillCircleAtPoint(dropX, dropY, 1 + math.random(0, 2))
-        end
     else
-        local outlineW = 1
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(x - size/4 - outlineW, y - size - outlineW, size/2 + outlineW*2, size + outlineW)
-        gfx.fillRect(x - size/2 - outlineW, y - size * 0.7 - outlineW, size + outlineW*2, size/5 + outlineW*2)
-        gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(x - size/4, y - size, size/2, size)
-        gfx.fillRect(x - size/2, y - size * 0.7, size, size/5)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillCircleAtPoint(x - size/8, y - size * 0.8, size/10)
-        gfx.fillCircleAtPoint(x + size/8, y - size * 0.8, size/10)
+        -- Draw sprite scaled based on distance
+        if self.sprite then
+            local scaledWidth = math.floor(self.sprite.width * scale)
+            local scaledHeight = math.floor(self.sprite.height * scale)
+            local scaledImage = self.sprite:scaledImage(scale)
+            scaledImage:draw(x - scaledWidth/2, y - scaledHeight/2)
+        end
+        
+        -- Show hit effect on top of sprite
+        if self.isHitted then
+            -- Effetto sangue (splash)
+            gfx.setColor(gfx.kColorWhite)
+            for i = 0, 7 do
+                local angle = math.rad(i * 45 + math.random(-10, 10))
+                local len = size * 0.3 + math.random(0, math.max(1, math.floor(size * 0.2)))
+                local startX = x + math.cos(angle) * size * 0.3
+                local startY = (y - size/2) + math.sin(angle) * size * 0.3
+                local endX = startX + math.cos(angle) * len
+                local endY = startY + math.sin(angle) * len
+                gfx.drawLine(startX, startY, endX, endY)
+            end
+            for i = 1, 5 do
+                local maxOffset = math.max(1, math.floor(size/2))
+                local dropX = x + math.random(-maxOffset, maxOffset)
+                local dropY = (y - size/2) + math.random(-maxOffset, maxOffset)
+                gfx.fillCircleAtPoint(dropX, dropY, 1 + math.random(0, 2))
+            end
+        end
     end
 end
