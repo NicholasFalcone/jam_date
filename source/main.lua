@@ -27,14 +27,14 @@ local spawnAngleMin = -15
 local spawnAngleMax = 15
 
 local spawnN = 1 -- N: number of enemies per spawn (min 1)
-local spawnT = 10.0 -- T: time between spawns in seconds
-local spawnMinT = 0.25 -- minimum allowed spawn interval (seconds)
+local spawnT = 15.0 -- T: time between spawns in seconds
+local spawnMinT = 1 -- minimum allowed spawn interval (seconds)
 
 -- Scaling parameters
 local N_ScaleTime = 15.0 -- every X seconds increase N
 local N_ScaleValue = 1 -- increase value for N
 local T_ScaleTime = 20.0 -- every X seconds modify T
-local T_ScaleValue = 0.0 -- change in seconds to add to T each interval (can be negative)
+local T_ScaleValue = 1 -- change in seconds to add to T each interval (can be negative)
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
@@ -42,8 +42,8 @@ local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.005
-local enemyStartingHealth = 3
+local enemySpeed = 0.002
+local enemyStartingHealth = 100
 
 --- Weapon selection tracking
 local needsWeaponRoll = false
