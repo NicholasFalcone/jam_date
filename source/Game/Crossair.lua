@@ -22,8 +22,8 @@ function Crossair:draw()
     local reticle = (self.hitRadius and self.hitRadius > 0) and self.shotgunReticle or self.normalReticle
     if reticle then
         local rw, rh = reticle:getSize()
-        local dx = math.floor(self.x - (rw / 2))
-        local dy = math.floor(self.y - (rh / 2))
+        local dx = math.floor(self.x - (rw / 2) + 0.5)
+        local dy = math.floor(self.y - (rh / 2) + 0.5)
         reticle:draw(dx, dy)
     end
 
