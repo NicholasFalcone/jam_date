@@ -43,6 +43,9 @@ function Weapon:initByType(t, ammo)
 		self.maxWindUp = 0
 		self.maxCooldown = 0
 		self.autoFire = false
+		self.Revolver_reloadFrames = self:loadRevolverReloadFrames()
+		self.Revolver_shootFrames = self:loadRevolverShootFrames()
+		self.Revolver_idleFrameIndex = 1
 		-- Revolver-specific parameters
 		self.Damage = 100
 		self.Revolver_ArcSize = 120 -- degrees required for each phase (cock + fire)
@@ -58,6 +61,9 @@ function Weapon:initByType(t, ammo)
 		self.maxWindUp = 0
 		self.maxCooldown = 30
 		self.autoFire = false
+		self.Shotgun_reloadFrames = self:loadShotgunReloadFrames()
+		self.Shotgun_shootFrames = self:loadShotgunShootFrames()
+		self.Shotgun_idleFrameIndex = 1
 		-- Shotgun-specific parameters
 		self.Damage = 100
 		self.Shotgun_ArcSize = 300 -- degrees required for a complete rotation to fire
@@ -84,7 +90,7 @@ function Weapon:update(now)
 	elseif self.weaponType == "Revolver" then
 		self:updateRevolver(now)
 	elseif self.weaponType == "Shotgun" then
-		self:updateCooldown()
+		self:updateShotgun()
 	else
 		self:updateCooldown()
 	end
@@ -120,8 +126,14 @@ function Weapon:updateRevolver(now)
 	if self.Revolver_pendingFire then
 		self:fire(1) -- Revolver consumes 1 ammo per shot
 		self.Revolver_pendingFire = false
+		local shootFrames = self.Revolver_shootFrames
+		self.Revolver_fireTicks = (shootFrames and #shootFrames) or 3
+		self.Revolver_fireFrameIndex = 1
+		self:setState("firing")
 	end
 	if self.Revolver_fireTicks and self.Revolver_fireTicks > 0 then
+		self:setState("firing")
+		self.Revolver_fireFrameIndex = math.min((self.Revolver_fireFrameIndex or 1) + 1, (self.Revolver_shootFrames and #self.Revolver_shootFrames) or 3)
 		self.Revolver_fireTicks = math.max(0, self.Revolver_fireTicks - 1)
 		if self.Revolver_fireTicks == 0 then
 			if self.Revolver_stage == 0 then
@@ -129,6 +141,18 @@ function Weapon:updateRevolver(now)
 			else
 				self:setState("cocked")
 			end
+		end
+	end
+	self:updateCooldown()
+end
+
+function Weapon:updateShotgun()
+	if self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0 then
+		self:setState("firing")
+		self.Shotgun_fireFrameIndex = math.min((self.Shotgun_fireFrameIndex or 1) + 1, (self.Shotgun_shootFrames and #self.Shotgun_shootFrames) or 3)
+		self.Shotgun_fireTicks = math.max(0, self.Shotgun_fireTicks - 1)
+		if self.Shotgun_fireTicks == 0 then
+			self:setState("idle")
 		end
 	end
 	self:updateCooldown()
@@ -240,6 +264,9 @@ function Weapon:onCrankChangeShotgun(change)
 	if (self.Shotgun_accum or 0) >= (self.Shotgun_ArcSize or 360) then
 		-- Fire (returns true if had ammo, but fires anyway even at 0 ammo)
 		self:fire(2)
+		local shootFrames = self.Shotgun_shootFrames
+		self.Shotgun_fireTicks = (shootFrames and #shootFrames) or 3
+		self.Shotgun_fireFrameIndex = 1
 		-- Always start cooldown and reset on complete rotation
 		self:startCooldown()
 		self.Shotgun_accum = 0
@@ -410,48 +437,56 @@ function Weapon:drawMinigun(cx, cy)
 end
 
 function Weapon:drawRevolver(cx, cy)
-	local cylX = cx - 10
-	local cylY = cy - 6
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillCircleAtPoint(cylX, cylY, 18)
-	gfx.setColor(gfx.kColorBlack)
-	gfx.fillCircleAtPoint(cylX, cylY, 10)
-	
-	local bx = cylX + 26
-	local by = cylY - 4
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(bx, by, 40, 10)
-	gfx.setColor(gfx.kColorBlack)
-	gfx.fillRect(bx + 34, by + 2, 6, 6)
-	
-	local hx = cylX - 6
-	local hy = cylY - 22
-	if self.weaponState == "cocked" then
-		gfx.fillRect(hx, hy - 6, 12, 12)
-	else
-		gfx.fillRect(hx, hy, 12, 8)
+	local isFiring = (self.Revolver_pendingFire == true) or (self.Revolver_fireTicks and self.Revolver_fireTicks > 0) or (self.weaponState == "firing")
+	if isFiring then
+		local shootFrames = self.Revolver_shootFrames
+		if shootFrames and #shootFrames > 0 then
+			local shootIndex = math.max(1, math.min(#shootFrames, self.Revolver_fireFrameIndex or 1))
+			local shootFrame = shootFrames[shootIndex]
+			if shootFrame and shootFrame.drawCentered then
+				shootFrame:drawCentered(cx, cy)
+			end
+		end
+		return
 	end
-	
-	if self.weaponState == "firing" then
-		self:drawFlash(bx + 42, by + 5)
+
+	local reloadFrames = self.Revolver_reloadFrames
+	if reloadFrames and #reloadFrames > 0 then
+		local reloadIndex = self.Revolver_idleFrameIndex or 1
+		if self.weaponState ~= "idle" then
+			reloadIndex = self:getRevolverReloadFrameIndex(reloadFrames)
+		end
+		local reloadFrame = reloadFrames[reloadIndex]
+		if reloadFrame and reloadFrame.drawCentered then
+			reloadFrame:drawCentered(cx, cy)
+		end
 	end
 end
 
 function Weapon:drawShotgun(cx, cy)
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(cx - 60, cy - 18, 110, 20)
-	
-	local pumpOffset = 0
-	if self.weaponState == "winding" then
-		pumpOffset = ((self.Shotgun_accum or 0) / (self.Shotgun_ArcSize or 360)) * 8
+	local isFiring = (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0) or (self.weaponState == "firing")
+	if isFiring then
+		local shootFrames = self.Shotgun_shootFrames
+		if shootFrames and #shootFrames > 0 then
+			local shootIndex = math.max(1, math.min(#shootFrames, self.Shotgun_fireFrameIndex or 1))
+			local shootFrame = shootFrames[shootIndex]
+			if shootFrame and shootFrame.drawCentered then
+				shootFrame:drawCentered(cx, cy)
+			end
+		end
+		return
 	end
-	gfx.setColor(gfx.kColorBlack)
-	gfx.fillRect(cx + 30 + pumpOffset, cy - 8, 14, 8)
-	
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRect(cx + 44, cy - 14, 8, 12)
-	if self.weaponState == "firing" then
-		self:drawFlash(cx + 54, cy - 8)
+
+	local reloadFrames = self.Shotgun_reloadFrames
+	if reloadFrames and #reloadFrames > 0 then
+		local reloadIndex = self.Shotgun_idleFrameIndex or 1
+		if self.weaponState ~= "idle" then
+			reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
+		end
+		local reloadFrame = reloadFrames[reloadIndex]
+		if reloadFrame and reloadFrame.drawCentered then
+			reloadFrame:drawCentered(cx, cy)
+		end
 	end
 end
 
@@ -474,6 +509,76 @@ function Weapon:loadMinigunFrames()
 		end
 	end
 	return frames
+end
+
+function Weapon:loadRevolverReloadFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/REV_reload/REV_reload - "
+	local frameNumbers = {1, 2, 3, 4, 5, 6, 7, 8}
+	for _, n in ipairs(frameNumbers) do
+		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
+end
+
+function Weapon:loadRevolverShootFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/REV_Shoot/REV_Shoot - "
+	local frameNumbers = {9, 10, 11}
+	for _, n in ipairs(frameNumbers) do
+		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
+end
+
+function Weapon:loadShotgunReloadFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/SGN_Reload/SGN_Reload - "
+	local frameNumbers = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
+	for _, n in ipairs(frameNumbers) do
+		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
+end
+
+function Weapon:loadShotgunShootFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/SGN_Shoot/SGN_Shoot - "
+	local frameNumbers = {13, 14, 15}
+	for _, n in ipairs(frameNumbers) do
+		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
+end
+
+function Weapon:getRevolverReloadFrameIndex(frames)
+	if not frames or #frames == 0 then return 1 end
+	local arc = self.Revolver_ArcSize or 180
+	local accum = self.Revolver_accum or 0
+	local progress = math.max(0, math.min(1, accum / arc))
+	local index = math.floor(progress * (#frames - 1)) + 1
+	return math.max(1, math.min(#frames, index))
+end
+
+function Weapon:getShotgunReloadFrameIndex(frames)
+	if not frames or #frames == 0 then return 1 end
+	local arc = self.Shotgun_ArcSize or 360
+	local accum = self.Shotgun_accum or 0
+	local progress = math.max(0, math.min(1, accum / arc))
+	local index = math.floor(progress * (#frames - 1)) + 1
+	return math.max(1, math.min(#frames, index))
 end
 
 -- Factory helper
