@@ -39,6 +39,8 @@ function Weapon:initByType(t, ammo)
 		self.lastDecelTime = playdate.getElapsedTime()
 		self.lastShotTime = playdate.getElapsedTime()
 		self.Minigun_sfxShot = audioManager:loadSample("sounds/minigun_shot")
+		self.Minigun_sfxRotation = audioManager:loadSample("sounds/SFX_MinigunRotation_loop")
+		self.Minigun_rotationPlaying = false
 	elseif t == "Revolver" then
 		self.maxWindUp = 0
 		self.maxCooldown = 0
@@ -101,6 +103,12 @@ end
 
 function Weapon:updateMinigun(now)
 	if self.isShooting then
+		-- Start rotation sound loop if not already playing
+		if not self.Minigun_rotationPlaying and self.Minigun_sfxRotation then
+			pcall(function() self.Minigun_sfxRotation:play(0) end) -- 0 = infinite loop
+			self.Minigun_rotationPlaying = true
+		end
+		
 		-- accelerate fire rate over time
 		if now - (self.lastAccelTime or 0) >= (self.FireRate_AccelerationSpeed or 1.0) then
 			self.FireRate_Current = math.max(self.FireRate_Max, self.FireRate_Current - (self.FireRate_AccelerationValue or 0.01))
@@ -114,6 +122,13 @@ function Weapon:updateMinigun(now)
 			if self.weaponState ~= "firing" then self:setState("winding") end
 		end
 	else
+		 -- decelerate fire rate when not shooting
+		-- Stop rotation sound if playing
+		if self.Minigun_rotationPlaying and self.Minigun_sfxRotation then
+			pcall(function() self.Minigun_sfxRotation:stop() end)
+			self.Minigun_rotationPlaying = false
+		end
+		
 		-- decelerate fire rate when not shooting
 		if now - (self.lastDecelTime or 0) >= (self.FireRate_DecelerationSpeed or 1.0) then
 			self.FireRate_Current = math.min(self.FireRate_Min, self.FireRate_Current + (self.FireRate_DecelerationValue or 0.02))
@@ -375,6 +390,12 @@ function Weapon:onCrankChangeDefault(change)
 end
 
 function Weapon:setType(t, ammo)
+	-- Stop minigun rotation sound if it's playing before switching weapons
+	if self.weaponType == "Minigun" and self.Minigun_rotationPlaying and self.Minigun_sfxRotation then
+		pcall(function() self.Minigun_sfxRotation:stop() end)
+		self.Minigun_rotationPlaying = false
+	end
+	
 	self.weaponType = t
 	self:initByType(t, ammo)
 end
