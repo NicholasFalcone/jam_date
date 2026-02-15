@@ -148,7 +148,7 @@ function GameManager:onIdleEnter()
 	end
 
 	if music then music:stop() end
-	music = audioManager:loadSample("sounds/Music_Menu.mp3")
+	music = audioManager:loadMusic("sounds/Music_Menu")
 	if music then music:play(0) end
 end
 
@@ -161,7 +161,7 @@ function GameManager:onRunningEnter()
 	self.playerHealth = self.maxPlayerHealth
 
 	if music then music:stop() end
-	music = audioManager:loadSample("sounds/Music_Game.mp3")
+	music = audioManager:loadMusic("sounds/Music_Game")
 	if music then music:play(0) end
 end
 

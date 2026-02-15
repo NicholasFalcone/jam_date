@@ -129,7 +129,10 @@ function Init()
         local w, h = backgroundImage:getSize()
         bgLoadError = "Caricata: " .. w .. "x" .. h
     end
-
+    -- Ensure menu music/UI are initialized without starting gameplay
+    if gameManager and gameManager.onIdleEnter then
+        pcall(function() gameManager:onIdleEnter() end)
+    end
 end
 
 
