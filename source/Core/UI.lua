@@ -3,18 +3,21 @@ class('UI').extends()
 local gfx = playdate.graphics
 
 function UI:init()
-    -- Default to HUD so that a UI() created in main.lua and used only for gameplay
-    -- will not accidentally show menus.
+    -- Default to HUD so UI() created in main.lua (for gameplay) doesn't show the menu
     self.screen = "hud" -- "menu" | "howto" | "credits" | "hud" | "hidden"
+
+    -- Fonts: bold for titles, normal for body
+    self.fontTitle = gfx.getSystemFont(gfx.font.kVariantBold)
+    self.fontBody  = gfx.getSystemFont(gfx.font.kVariantNormal)
 
     -- Main menu
     self.menuOptions = { "Play", "How to play", "Credits" }
     self.menuIndex = 1
 
-    -- How-to pages (order required by you)
+    -- How-to pages (order required)
     self.howtoPages = {
         { key="basics",  title="Basics",   text="Shoot the enemies and\nsurvive as long as you\ncan.\n\nUse the arrows to aim\nand the crank to shoot.\n\nWhen you are out of\nammo, shake the\nplaydate to roll the dice\nand gain a new,\nreloaded weapon!" },
-        { key="revolver", title="Revolver", text="Spin backward\nuntil you hear the\n'Click', then\nforward until you\nshoot." },
+        { key="revolver", title="Revolver", text="Spin backward\nuntil you hear the\n\"Click\", then\nforward until you\nshoot." },
         { key="minigun",  title="Minigun",  text="Spin forward fast\nenough to shoot.\nShooting without\nstopping increase\nrate of fire." },
         { key="shotgun",  title="Shotgun",  text="Spin a full circle to\nshoot. Wait the\nrecharge sound to\nshoot again." }
     }
@@ -28,7 +31,7 @@ function UI:init()
     -- Placeholder images (safe if missing)
     -- Put your images later in:
     --   source/images/howto/
-    -- with these names (no extension in the code):
+    -- names (no extension in code):
     --   basics_main.png, revolver_gun.png, minigun_gun.png, shotgun_gun.png, playdate_icon.png
     self.imgBasicsMain = self:loadImage("images/howto/basics_main")
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
@@ -37,23 +40,18 @@ function UI:init()
     self.imgPlaydate    = self:loadImage("images/howto/playdate_icon")
 end
 
--- Safe image loader: returns nil if the file doesn't exist yet
 function UI:loadImage(pathNoExt)
-    local img = gfx.image.new(pathNoExt)
-    return img
+    return gfx.image.new(pathNoExt) -- returns nil if missing
 end
 
 function UI:setScreen(name)
     self.screen = name
     self.crankAccum = 0
-
-    -- Always start How To at Basics
     if name == "howto" then
         self.howtoIndex = 1
     end
 end
 
--- Used by GameManager to gate main.lua's "press A to start" without touching main.lua.
 function UI:canStart()
     return self.screen == "menu" and self.menuIndex == 1
 end
@@ -70,19 +68,12 @@ local function clamp(v, lo, hi)
     return v
 end
 
--- Move how-to page: dir = +1 (down/forward) or -1 (up/backward)
 function UI:howtoMove(dir)
     local newIndex = self.howtoIndex + dir
-
-    -- Required behavior:
-    -- Up on Basics: nothing
-    -- Down goes Basics -> Revolver -> Minigun -> Shotgun
-    -- Down on Shotgun: nothing
     newIndex = clamp(newIndex, 1, #self.howtoPages)
     self.howtoIndex = newIndex
 end
 
--- Returns an "action" string when user selects something
 function UI:update()
     if self.screen == "hidden" or self.screen == "hud" then
         return nil
@@ -96,7 +87,6 @@ function UI:update()
             self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
         end
 
-        -- Crank navigation (menu)
         local crankDelta = playdate.getCrankChange()
         if crankDelta ~= 0 then
             self.crankAccum = self.crankAccum + crankDelta
@@ -121,21 +111,19 @@ function UI:update()
         return nil
     end
 
-    -- HOW TO PLAY (4 pages)
+    -- HOW TO PLAY
     if self.screen == "howto" then
-        -- Back to menu
         if playdate.buttonJustPressed(playdate.kButtonB) then
             return "back"
         end
 
-        -- Required arrow behavior
         if playdate.buttonJustPressed(playdate.kButtonDown) then
             self:howtoMove(1)
         elseif playdate.buttonJustPressed(playdate.kButtonUp) then
             self:howtoMove(-1)
         end
 
-        -- Crank behavior: forward = next page, backward = previous page
+        -- Crank: forward = next, backward = previous
         local crankDelta = playdate.getCrankChange()
         if crankDelta ~= 0 then
             self.crankAccum = self.crankAccum + crankDelta
@@ -165,39 +153,55 @@ function UI:update()
     return nil
 end
 
-local function drawCenteredText(text, y)
-    local w, _ = gfx.getTextSize(text)
-    gfx.drawText(text, (400 - w) / 2, y)
-end
-
--- Simple placeholder box if image missing
 local function drawPlaceholderBox(x, y, w, h, label)
     gfx.drawRect(x, y, w, h)
     if label then
+        gfx.setFont(gfx.getSystemFont(gfx.font.kVariantNormal))
         gfx.drawText(label, x + 6, y + 6)
     end
 end
 
--- Frame + small triangles like your mockups
-local function drawHowtoFrame()
-    -- Outer frame
+local function drawHowtoFrame(showUp, showDown)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(0, 0, 400, 240)
     gfx.setColor(gfx.kColorBlack)
 
-    -- Border
     gfx.drawRect(10, 10, 380, 220)
 
-    -- Top triangle (up)
-    gfx.fillTriangle(200, 6, 192, 18, 208, 18)
-    -- Bottom triangle (down)
-    gfx.fillTriangle(200, 234, 192, 222, 208, 222)
+    -- Conditional arrows
+    if showUp then
+        gfx.fillTriangle(200, 6, 192, 18, 208, 18)
+    end
+    if showDown then
+        gfx.fillTriangle(200, 234, 192, 222, 208, 222)
+    end
+end
+
+local function drawCenteredBoldTitle(ui, text, y)
+    gfx.setFont(ui.fontTitle)
+
+    local w, _ = gfx.getTextSize(text)
+    local x = (400 - w) / 2
+
+    -- draw twice (slightly thicker = reads “bigger”)
+    gfx.drawText(text, x, y)
+    gfx.drawText(text, x, y + 1)
+end
+
+local function drawBackBottomRight(ui)
+    gfx.setFont(ui.fontBody)
+    local label = "B: Back"
+    local w, _ = gfx.getTextSize(label)
+    local x = 400 - w - 18
+    local y = 240 - 28 -- "a bit up"
+    gfx.drawText(label, x, y)
 end
 
 function UI:draw(currentWeapon)
-    -- HUD / hidden: only ammo text (same behavior as before)
+    -- HUD / hidden: only ammo
     if self.screen == "hidden" or self.screen == "hud" then
         if currentWeapon and currentWeapon.Ammo ~= nil then
+            gfx.setFont(self.fontBody)
             gfx.drawText("Ammo: " .. tostring(currentWeapon.Ammo), 10, 10)
         end
         return
@@ -205,40 +209,49 @@ function UI:draw(currentWeapon)
 
     -- MENU
     if self.screen == "menu" then
-        drawCenteredText("MAIN MENU", 28)
+        gfx.setColor(gfx.kColorWhite)
+        gfx.fillRect(0, 0, 400, 240)
+        gfx.setColor(gfx.kColorBlack)
 
-        local startY = 90
+        drawCenteredBoldTitle(self, "MAIN MENU", 26)
+
+        gfx.setFont(self.fontBody)
+        local startY = 92
         local lineH = 22
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "
-            drawCenteredText(prefix .. label, startY + (i - 1) * lineH)
+            local txt = prefix .. label
+            local w, _ = gfx.getTextSize(txt)
+            gfx.drawText(txt, (400 - w) / 2, startY + (i - 1) * lineH)
         end
 
         gfx.drawText("Arrows/Crank: Select   A: Confirm", 10, 220)
         return
     end
 
-    -- HOW TO PLAY (4 screens)
+    -- HOW TO PLAY
     if self.screen == "howto" then
-        drawHowtoFrame()
+        local showUp = (self.howtoIndex > 1)
+        local showDown = (self.howtoIndex < #self.howtoPages)
+
+        -- Your special rule: Basics only down, Shotgun only up, middle both
+        drawHowtoFrame(showUp, showDown)
 
         local page = self.howtoPages[self.howtoIndex]
-        drawCenteredText(page.title, 20)
+        drawCenteredBoldTitle(self, page.title, 18)
 
-        -- Layout zones (approx like your mockups)
-        -- Left image zone
+        -- Layout
         local leftX, leftY, leftW, leftH = 30, 60, 170, 130
-        -- Right text zone
         local textX, textY = 220, 60
 
-        -- Choose which placeholders to show
+        gfx.setFont(self.fontBody)
+
         if page.key == "basics" then
             if self.imgBasicsMain then
                 self.imgBasicsMain:draw(leftX, leftY)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "BASICS IMG")
             end
-
             gfx.drawText(page.text, textX, textY)
 
         elseif page.key == "revolver" then
@@ -247,10 +260,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "REVOLVER IMG")
             end
-
             gfx.drawText(page.text, textX, textY)
 
-            -- Playdate icon placeholder (bottom-right)
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
             else
@@ -263,7 +274,6 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "MINIGUN IMG")
             end
-
             gfx.drawText(page.text, textX, textY)
 
             if self.imgPlaydate then
@@ -278,7 +288,6 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "SHOTGUN IMG")
             end
-
             gfx.drawText(page.text, textX, textY)
 
             if self.imgPlaydate then
@@ -288,19 +297,21 @@ function UI:draw(currentWeapon)
             end
         end
 
-        -- Navigation hints
-        gfx.drawText("Up/Down or Crank: Page    B: Back", 20, 218)
+        -- Removed the "Up/Down or Crank..." line (per request)
+        drawBackBottomRight(self)
         return
     end
 
-    -- CREDITS (simple)
+    -- CREDITS
     if self.screen == "credits" then
         gfx.setColor(gfx.kColorWhite)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorBlack)
 
-        drawCenteredText("CREDITS", 30)
-        gfx.drawText("B: Back", 20, 220)
+        drawCenteredBoldTitle(self, "CREDITS", 26)
+
+        gfx.setFont(self.fontBody)
+        drawBackBottomRight(self)
         return
     end
 end
