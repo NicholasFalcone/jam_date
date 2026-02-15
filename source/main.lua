@@ -89,6 +89,7 @@ local playerRotation = 0
 
 function Init()
     local menu = playdate.getSystemMenu()
+    playdate.startAccelerometer()
 
     -- Definiamo i valori dello "slider"
     -- local sliderOptions = {"1", "3", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"}
@@ -248,6 +249,9 @@ function playdate.update()
             return
         end
     end
+    
+    -- Always update game manager logic (for time, shake detection, etc)
+    gameManager:update(0.016)
 
     -- Handle state transitions via crank button
     if playdate.buttonJustPressed(playdate.kButtonA) then
@@ -270,15 +274,19 @@ function playdate.update()
             gameManager:setState("running")
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
-            local newWeapon = gameManager.rolledWeapon
-            local newAmmo = gameManager.rolledAmmo
-            
-            if newWeapon and currentWeapon.setType then
-                currentWeapon:setType(newWeapon, newAmmo)
+            -- Only allow transition if dice have been rolled (RESULTS phase)
+            -- AND it wasn't the same frame we triggered the roll (prevents skip)
+            if gameManager.rollingPhase == "results" and not gameManager.rolledThisFrame then
+                local newWeapon = gameManager.rolledWeapon
+                local newAmmo = gameManager.rolledAmmo
+                
+                if newWeapon and currentWeapon.setType then
+                    currentWeapon:setType(newWeapon, newAmmo)
+                end
+                
+                needsWeaponRoll = false
+                gameManager:setState("running")
             end
-            
-            needsWeaponRoll = false
-            gameManager:setState("running")
         elseif gameManager:isGameOver() then
             -- Complete reset when going back from game over
             enemies = {}
@@ -316,7 +324,6 @@ function playdate.update()
         Input.IsMovingForward()
         updateEnemies()
         DoAim()
-        gameManager:update(0.016) -- ~60 FPS
         -- draw enemies
         drawEnemies()
         if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
@@ -354,7 +361,6 @@ function drawRoad()
         local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
         local y = horizonY + (lineZ * lineZ) * (groundY - horizonY)
         local w = topW + (lineZ * lineZ) * (botW - topW)
-        
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
     end

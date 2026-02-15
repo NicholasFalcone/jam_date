@@ -15,6 +15,11 @@ local GAME_STATE = {
 	PAUSED = "paused"
 }
 
+local ROLLING_PHASE = {
+	WAITING_FOR_SWING = "waitingForSwing",
+	RESULTS = "results"
+}
+
 local audioManager = AudioManager()
 
 function GameManager:init()
@@ -43,11 +48,34 @@ function GameManager:init()
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
 	self.gameOverCrankStepDeg = 18
+
+	-- Phase for rolling
+	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
+	self.shakeThreshold = 1.5 -- Sensitivity threshold for movement
+	self.rolledThisFrame = false
 end
 
 function GameManager:update(deltaTime)
+	self.rolledThisFrame = false
 	if self.currentState == GAME_STATE.RUNNING then
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
+	elseif self.currentState == GAME_STATE.ROLLING then
+		if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
+			-- Use playdate.accelerometer if it exists, otherwise use fallback button
+			if playdate.accelerometer then
+				local x, y, z = playdate.accelerometer.getAcceleration()
+				-- Detect significant movement (swing/shake)
+				local magnitude = math.sqrt(x*x + y*y + z*z)
+				if magnitude > self.shakeThreshold then
+					self:triggerDiceRoll()
+				end
+			else
+				-- Safe fallback - also check for button press if accelerometer is missing
+				if playdate.buttonJustPressed(playdate.kButtonA) then
+					self:triggerDiceRoll()
+				end
+			end
+		end
 	end
 end
 
@@ -133,19 +161,42 @@ function GameManager:onRunningEnter()
 end
 
 function GameManager:onRollingEnter()
+	print("Rolling state entered - Waiting for swing...")
+	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
+	
+	if playdate.accelerometer then
+		playdate.accelerometer.start()
+	else
+		-- Fallback to top-level function if the table is missing
+		pcall(function() playdate.startAccelerometer() end)
+		print("Warning: playdate.accelerometer table is nil. Using Button A as fallback.")
+	end
+	
+	-- Note: Dice are NOT rolled yet
 	self.weaponDice = Dice()
-	self.weaponDice:roll()
-
 	self.ammoDice = {}
 	for i = 1, 4 do
-		local dice = Dice()
+		table.insert(self.ammoDice, Dice())
+	end
+end
+
+function GameManager:triggerDiceRoll()
+	print("Swing detected! Rolling dice...")
+	self.rollingPhase = ROLLING_PHASE.RESULTS
+	self.rolledThisFrame = true
+	
+	if self.weaponDice then
+		self.weaponDice:roll()
+	end
+
+	for _, dice in ipairs(self.ammoDice) do
 		dice:roll()
-		table.insert(self.ammoDice, dice)
 	end
 	
 	if self.SFX_RollingDice then
 		pcall(function() self.SFX_RollingDice:play(1) end)
 	end
+	
 	-- Calculate results
 	self:calculateRollingResults()
 end
@@ -321,8 +372,17 @@ function GameManager:drawGameOverScreen(g)
 end
 
 function GameManager:drawRollingScreen(g)
-	g.setColor(g.kColorBlack)
 	g.setColor(g.kColorWhite)
+	
+	if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
+		local prompt = "SWING THE CONSOLE TO ROLL!"
+		if not playdate.accelerometer then
+			prompt = "PRESS A TO ROLL!"
+		end
+		g.drawTextAligned(prompt, 200, 100, kTextAlignment.center)
+		return
+	end
+
 	g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
 
 	if self.weaponDice then
