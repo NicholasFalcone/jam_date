@@ -77,12 +77,11 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_idleFrameIndex = 1
 		-- Shotgun-specific parameters
 		self.Damage = 130
-		self.Shotgun_ArcSize = 150 -- degrees required for EACH phase (pump + fire)
-		self.Shotgun_stage = 0 -- 0 = waiting for pump (CCW), 1 = pumped waiting for release (CW)
-		self.Shotgun_accum = 0 -- accumulated degrees in current phase
+		self.Shotgun_ArcSize = 360 -- degrees required for a complete rotation to fire
+		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
 		self.Shotgun_lastDir = 0 -- last crank direction seen
 		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
-		self.Shotgun_pendingFire = false
+		self.Shotgun_fireTicks = 0
 		self.Shotgun_sfxShot = audioManager:loadSample("sounds/shotgun_shot")
 		self.Shotgun_sfxPump = audioManager:loadSample("sounds/revolver_click") -- Placeholder for pump SFX
 		-- Set crosshair hit radius for area damage
@@ -187,16 +186,6 @@ function Weapon:updateRevolver(now)
 end
 
 function Weapon:updateShotgun()
-	if self.Shotgun_pendingFire then
-		self:fire(2) -- Shotgun consumes 2 ammo per shot
-		self.Shotgun_pendingFire = false
-		local shootFrames = self.Shotgun_shootFrames
-		local totalNumFrames = (shootFrames and #shootFrames) or 3
-		self.Shotgun_fireTicks = totalNumFrames * 2 -- 2 internal ticks per animation frame
-		self.Shotgun_fireFrameIndex = 1
-		self:setState("firing")
-	end
-
 	if self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0 then
 		self:setState("firing")
 		local shootFrames = self.Shotgun_shootFrames
@@ -209,11 +198,7 @@ function Weapon:updateShotgun()
 		self.Shotgun_fireTicks = self.Shotgun_fireTicks - 1
 	elseif self.weaponState == "firing" then
 		-- Animation completely finished
-		if self.Shotgun_stage == 1 then
-			self:setState("cocked") -- "pumped" state
-		else
-			self:setState("idle")
-		end
+		self:setState("idle")
 	end
 	self:updateCooldown()
 end
@@ -310,67 +295,31 @@ function Weapon:onCrankChangeRevolverFire(dir, absc)
 end
 
 function Weapon:onCrankChangeShotgun(change)
-	if not change or change == 0 then return end
+	if not change or change <= 0 then 
+		self.Shotgun_accum = 0
+		if self.weaponState ~= "firing" then
+			self:setState("idle")
+		end
+		return 
+	end
+	
 	if self.weaponState == "firing" or (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0) then 
 		return 
 	end
 
-	local dir = 0
-	if change > 0 then dir = 1 elseif change < 0 then dir = -1 end
-	local absc = math.abs(change)
+	self.Shotgun_accum = (self.Shotgun_accum or 0) + change
+	self:setState("winding")
 	
-	if self.Shotgun_stage == 0 then
-		self:onCrankChangeShotgunPump(dir, absc)
-	elseif self.Shotgun_stage == 1 then
-		self:onCrankChangeShotgunFire(dir, absc)
-	end
-end
-
-function Weapon:onCrankChangeShotgunPump(dir, absc)
-	if dir == -1 then
-		if self.Shotgun_lastDir == -1 or self.Shotgun_lastDir == 0 then
-			self.Shotgun_accum = self.Shotgun_accum + absc
-		else
-			self.Shotgun_accum = absc
-		end
-		self.Shotgun_lastDir = -1
-		
-		if self.Shotgun_accum >= (self.Shotgun_ArcSize or 150) then
-			if self.Shotgun_sfxPump then pcall(function() self.Shotgun_sfxPump:play(1) end) end
-			self:setState("cocked")
-			local excess = self.Shotgun_accum - (self.Shotgun_ArcSize or 150)
-			self.Shotgun_stage = 1
-			self.Shotgun_accum = excess
-		else
-			self:setState("winding")
-		end
-	else
-		-- Ignore opposite direction
-		return
-	end
-end
-
-function Weapon:onCrankChangeShotgunFire(dir, absc)
-	if dir == 1 then
-		if self.Shotgun_lastDir == 1 or self.Shotgun_lastDir == 0 then
-			self.Shotgun_accum = self.Shotgun_accum + absc
-		else
-			self.Shotgun_accum = absc
-		end
-		self.Shotgun_lastDir = 1
-		
-		if self.Shotgun_accum >= (self.Shotgun_ArcSize or 150) then
-			self.Shotgun_pendingFire = true
-			self:startCooldown()
-			local excess = self.Shotgun_accum - (self.Shotgun_ArcSize or 150)
-			self.Shotgun_stage = 0
-			self.Shotgun_accum = excess
-		else
-			self:setState("winding")
-		end
-	else
-		-- Ignore opposite direction
-		return
+	if self.Shotgun_accum >= (self.Shotgun_ArcSize or 360) then
+		-- Fire (returns true if had ammo, but fires anyway even at 0 ammo)
+		self:fire(2)
+		local shootFrames = self.Shotgun_shootFrames
+		local totalNumFrames = (shootFrames and #shootFrames) or 3
+		self.Shotgun_fireTicks = totalNumFrames * 2 -- Start with duration stretching
+		self.Shotgun_fireFrameIndex = 1
+		-- Always start cooldown and reset on complete rotation
+		self:startCooldown()
+		self.Shotgun_accum = 0
 	end
 end
 
@@ -603,11 +552,7 @@ function Weapon:drawShotgun(cx, cy)
 	if reloadFrames and #reloadFrames > 0 then
 		local reloadIndex = self.Shotgun_idleFrameIndex or 1
 		if self.weaponState ~= "idle" then
-			if self.Shotgun_stage == 0 then
-				reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
-			else
-				reloadIndex = #reloadFrames
-			end
+			reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
 		end
 		local reloadFrame = reloadFrames[reloadIndex]
 		if reloadFrame and reloadFrame.drawCentered then
