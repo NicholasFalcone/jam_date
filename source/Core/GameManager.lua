@@ -225,7 +225,32 @@ function GameManager:onPausedEnter()
 end
 
 function GameManager:calculateRollingResults()
+	-- Ensure we don't roll the same weapon twice in a row.
 	local weaponRoll = self.weaponDice.value
+	local prevWeapon = self.rolledWeapon
+	local attempts = 0
+	while prevWeapon and attempts < 10 do
+		local candidate
+		if weaponRoll <= 2 then
+			candidate = "Minigun"
+		elseif weaponRoll <= 4 then
+			candidate = "Revolver"
+		else
+			candidate = "Shotgun"
+		end
+		if candidate ~= prevWeapon then
+			break
+		end
+		-- Reroll the weapon die and try again (bounded attempts)
+		if self.weaponDice and self.weaponDice.roll then
+			self.weaponDice:roll()
+			weaponRoll = self.weaponDice.value
+		else
+			break
+		end
+		attempts = attempts + 1
+	end
+
 	if weaponRoll <= 2 then
 		self.rolledWeapon = "Minigun"
 	elseif weaponRoll <= 4 then
@@ -234,6 +259,7 @@ function GameManager:calculateRollingResults()
 		self.rolledWeapon = "Shotgun"
 	end
 
+	-- Calculate ammo based on final weaponRoll
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		if weaponRoll <= 2 then
