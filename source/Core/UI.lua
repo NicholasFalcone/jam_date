@@ -207,7 +207,7 @@ end
 -- Build bullet positions in the exact disappearance order:
 -- columns: left -> right
 -- within a column: bottom -> top
--- FIX: partial (last) columns are TOP-aligned so they don't start too low.
+-- FIX: cap rows so minigun doesn't become a super-tall single stack when bullets are scaled small.
 function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     self.bulletPosCache[weaponType] = self.bulletPosCache[weaponType] or {}
     local cacheForWeapon = self.bulletPosCache[weaponType]
@@ -224,8 +224,18 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     local stepY = bulletH + 2
     local stepX = bulletW + 3
 
-    -- Max rows that can fit
-    local rows = math.floor((bottomY - topY) / stepY)
+    -- rows that physically fit
+    local rowsFit = math.floor((bottomY - topY) / stepY)
+    if rowsFit < 1 then rowsFit = 1 end
+
+    -- rows that we WANT visually (to match mockup)
+    local rowsCap = 20
+    if weaponType == "Minigun" then rowsCap = 24 end
+    if weaponType == "Revolver" then rowsCap = 20 end
+    if weaponType == "Shotgun"  then rowsCap = 18 end
+
+    -- final rows per column
+    local rows = math.min(rowsFit, rowsCap)
     if rows < 1 then rows = 1 end
 
     local colCount = math.ceil(maxAmmo / rows)
@@ -247,14 +257,11 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
         if remaining < rows then bulletsInCol = remaining end
         if bulletsInCol < 0 then bulletsInCol = 0 end
 
-        -- TOP-align this column: its top bullet starts at topY
-        -- but index order remains bottom->top
+        -- TOP-align each column so the last column doesn't start too low,
+        -- but keep ordering bottom -> top for disappearance logic.
         for row = 0, (bulletsInCol - 1) do
             if idx > maxAmmo then break end
-
-            -- row=0 should be the bottom bullet (for disappearance order)
             local y = topY + (bulletsInCol - 1 - row) * stepY
-
             positions[idx] = { x = x, y = y }
             idx = idx + 1
         end
@@ -266,6 +273,8 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     cacheForWeapon[key] = positions
     return positions
 end
+
+
 
 
 function UI:drawHud(currentWeapon)
