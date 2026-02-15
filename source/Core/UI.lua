@@ -20,6 +20,13 @@ function UI:init()
     }
     self.howtoIndex = 1
 
+    -- Credits pages (2 pages with full-page images)
+    self.creditPages = {
+        { key="credits1" },
+        { key="credits2" }
+    }
+    self.creditIndex = 1
+
     -- Crank navigation
     self.crankAccum = 0
     self.crankStepDegMenu = 18
@@ -32,6 +39,11 @@ function UI:init()
     self.imgRevolverPage = self:loadImage("images/howto/REVOLVER_1-dithered")
     self.imgMinigunPage  = self:loadImage("images/howto/MINIGUN_1-dithered")
     self.imgShotgunPage  = self:loadImage("images/howto/SHOTGUN_1-dithered")
+
+    -- Credits full page images (put in: source/images/credits/)
+    -- Page 1: SFX Credits, Page 2: Team Faces
+    self.imgCredits1Page = self:loadImage("images/credits/CREDITS_2-dithered")
+    self.imgCredits2Page = self:loadImage("images/credits/CREDITS_1-dithered")
 
     -- Keep weapon icons for HUD (different from how-to pages now)
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
@@ -63,6 +75,8 @@ function UI:setScreen(name)
     self.crankAccum = 0
     if name == "howto" then
         self.howtoIndex = 1
+    elseif name == "credits" then
+        self.creditIndex = 1
     end
 end
 
@@ -86,6 +100,11 @@ end
 function UI:howtoMove(dir)
     local newIndex = self.howtoIndex + dir
     self.howtoIndex = clamp(newIndex, 1, #self.howtoPages)
+end
+
+function UI:creditsMove(dir)
+    local newIndex = self.creditIndex + dir
+    self.creditIndex = clamp(newIndex, 1, #self.creditPages)
 end
 
 -- ---------- UPDATE ----------
@@ -165,6 +184,29 @@ function UI:update()
         if playdate.buttonJustPressed(playdate.kButtonB) then
             return "back"
         end
+
+        if playdate.buttonJustPressed(playdate.kButtonDown) then
+            self:creditsMove(1)
+        elseif playdate.buttonJustPressed(playdate.kButtonUp) then
+            self:creditsMove(-1)
+        end
+
+        -- Crank: forward = next, backward = previous
+        local crankDelta = playdate.getCrankChange()
+        if crankDelta ~= 0 then
+            self.crankAccum = self.crankAccum + crankDelta
+
+            while self.crankAccum >= self.crankStepDegHowto do
+                self.crankAccum = self.crankAccum - self.crankStepDegHowto
+                self:creditsMove(1)
+            end
+
+            while self.crankAccum <= -self.crankStepDegHowto do
+                self.crankAccum = self.crankAccum + self.crankStepDegHowto
+                self:creditsMove(-1)
+            end
+        end
+
         return nil
     end
 
@@ -445,11 +487,37 @@ function UI:draw(currentWeapon)
 
     -- CREDITS
     if self.screen == "credits" then
+        local showUp = (self.creditIndex > 1)
+        local showDown = (self.creditIndex < #self.creditPages)
+        
+        -- White background
         gfx.setColor(gfx.kColorWhite)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorBlack)
-
-        drawCenteredText("CREDITS", 30)
+        
+        -- Draw the appropriate full-page image based on current index
+        local page = self.creditPages[self.creditIndex]
+        local pageImg = nil
+        
+        if page.key == "credits1" then
+            pageImg = self.imgCredits1Page
+        elseif page.key == "credits2" then
+            pageImg = self.imgCredits2Page
+        end
+        
+        -- Draw the full-page image (it includes all text, graphics, borders, etc.)
+        if pageImg then
+            pageImg:draw(0, 0)
+        end
+        
+        -- Draw navigation arrows on top (black)
+        if showUp then
+            gfx.fillTriangle(200, 6, 192, 18, 208, 18)
+        end
+        if showDown then
+            gfx.fillTriangle(200, 234, 192, 222, 208, 222)
+        end
+        
         return
     end
 end
