@@ -65,12 +65,15 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_shootFrames = self:loadShotgunShootFrames()
 		self.Shotgun_idleFrameIndex = 1
 		-- Shotgun-specific parameters
-		self.Damage = 100
-		self.Shotgun_ArcSize = 300 -- degrees required for a complete rotation to fire
-		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
+		self.Damage = 130
+		self.Shotgun_ArcSize = 150 -- degrees required for EACH phase (pump + fire)
+		self.Shotgun_stage = 0 -- 0 = waiting for pump (CCW), 1 = pumped waiting for release (CW)
+		self.Shotgun_accum = 0 -- accumulated degrees in current phase
 		self.Shotgun_lastDir = 0 -- last crank direction seen
 		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
+		self.Shotgun_pendingFire = false
 		self.Shotgun_sfxShot = audioManager:loadSample("sounds/shotgun_shot")
+		self.Shotgun_sfxPump = audioManager:loadSample("sounds/revolver_click") -- Placeholder for pump SFX
 	else
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -127,31 +130,60 @@ function Weapon:updateRevolver(now)
 		self:fire(1) -- Revolver consumes 1 ammo per shot
 		self.Revolver_pendingFire = false
 		local shootFrames = self.Revolver_shootFrames
-		self.Revolver_fireTicks = (shootFrames and #shootFrames) or 3
+		local totalNumFrames = (shootFrames and #shootFrames) or 3
+		self.Revolver_fireTicks = totalNumFrames * 2 -- 2 internal ticks per animation frame
 		self.Revolver_fireFrameIndex = 1
 		self:setState("firing")
 	end
+
 	if self.Revolver_fireTicks and self.Revolver_fireTicks > 0 then
 		self:setState("firing")
-		self.Revolver_fireFrameIndex = math.min((self.Revolver_fireFrameIndex or 1) + 1, (self.Revolver_shootFrames and #self.Revolver_shootFrames) or 3)
-		self.Revolver_fireTicks = math.max(0, self.Revolver_fireTicks - 1)
-		if self.Revolver_fireTicks == 0 then
-			if self.Revolver_stage == 0 then
-				self:setState("idle")
-			else
-				self:setState("cocked")
-			end
+		local shootFrames = self.Revolver_shootFrames
+		local totalNumFrames = (shootFrames and #shootFrames) or 3
+		local totalTicks = totalNumFrames * 2
+		
+		-- Calculate frame index: stays on each sprite for 2 ticks
+		local currentFrame = math.floor((totalTicks - self.Revolver_fireTicks) / 2) + 1
+		self.Revolver_fireFrameIndex = math.max(1, math.min(totalNumFrames, currentFrame))
+		
+		self.Revolver_fireTicks = self.Revolver_fireTicks - 1
+	elseif self.weaponState == "firing" then
+		-- Animation completely finished
+		if self.Revolver_stage == 1 then
+			self:setState("cocked")
+		else
+			self:setState("idle")
 		end
 	end
 	self:updateCooldown()
 end
 
 function Weapon:updateShotgun()
+	if self.Shotgun_pendingFire then
+		self:fire(2) -- Shotgun consumes 2 ammo per shot
+		self.Shotgun_pendingFire = false
+		local shootFrames = self.Shotgun_shootFrames
+		local totalNumFrames = (shootFrames and #shootFrames) or 3
+		self.Shotgun_fireTicks = totalNumFrames * 2 -- 2 internal ticks per animation frame
+		self.Shotgun_fireFrameIndex = 1
+		self:setState("firing")
+	end
+
 	if self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0 then
 		self:setState("firing")
-		self.Shotgun_fireFrameIndex = math.min((self.Shotgun_fireFrameIndex or 1) + 1, (self.Shotgun_shootFrames and #self.Shotgun_shootFrames) or 3)
-		self.Shotgun_fireTicks = math.max(0, self.Shotgun_fireTicks - 1)
-		if self.Shotgun_fireTicks == 0 then
+		local shootFrames = self.Shotgun_shootFrames
+		local totalNumFrames = (shootFrames and #shootFrames) or 3
+		local totalTicks = totalNumFrames * 2 -- 2 internal ticks per animation frame
+		
+		local currentFrame = math.floor((totalTicks - self.Shotgun_fireTicks) / 2) + 1
+		self.Shotgun_fireFrameIndex = math.max(1, math.min(totalNumFrames, currentFrame))
+		
+		self.Shotgun_fireTicks = self.Shotgun_fireTicks - 1
+	elseif self.weaponState == "firing" then
+		-- Animation completely finished
+		if self.Shotgun_stage == 1 then
+			self:setState("cocked") -- "pumped" state
+		else
 			self:setState("idle")
 		end
 	end
@@ -184,6 +216,11 @@ end
 
 function Weapon:onCrankChangeRevolver(change)
 	if not change or change == 0 then return end
+	-- Stringent guard: don't allow ANY state change if we are in the middle of firing
+	if self.weaponState == "firing" or (self.Revolver_fireTicks and self.Revolver_fireTicks > 0) then 
+		return 
+	end
+
 	local dir = 0
 	if change > 0 then dir = 1 elseif change < 0 then dir = -1 end
 	local absc = math.abs(change)
@@ -203,17 +240,19 @@ function Weapon:onCrankChangeRevolverCock(dir, absc)
 			self.Revolver_accum = absc
 		end
 		self.Revolver_lastDir = -1
-		self:setState("winding")
-		if self.Revolver_accum >= (self.Revolver_ArcSize or 180) then
+		
+		if self.Revolver_accum >= (self.Revolver_ArcSize or 120) then
 			if self.Revolver_sfxClick then pcall(function() self.Revolver_sfxClick:play(1) end) end
 			self:setState("cocked")
+			local excess = self.Revolver_accum - (self.Revolver_ArcSize or 120)
 			self.Revolver_stage = 1
-			self.Revolver_accum = 0
+			self.Revolver_accum = excess
+		else
+			self:setState("winding")
 		end
 	else
-		self.Revolver_accum = 0
-		self.Revolver_lastDir = dir
-		self:setState("idle")
+		-- Ignore opposite direction
+		return
 	end
 end
 
@@ -225,54 +264,86 @@ function Weapon:onCrankChangeRevolverFire(dir, absc)
 			self.Revolver_accum = absc
 		end
 		self.Revolver_lastDir = 1
-		self:setState("winding")
-		if self.Revolver_accum >= (self.Revolver_ArcSize or 180) then
+		
+		if self.Revolver_accum >= (self.Revolver_ArcSize or 120) then
 			self.Revolver_pendingFire = true
 			self:startCooldown()
+			local excess = self.Revolver_accum - (self.Revolver_ArcSize or 120)
 			self.Revolver_stage = 0
-			self.Revolver_accum = 0
+			self.Revolver_accum = excess
+			-- State will be set to "firing" by update loop
+		else
+			self:setState("winding")
 		end
 	else
-		self.Revolver_accum = 0
-		self.Revolver_lastDir = dir
-		self:setState("cocked")
+		-- Ignore opposite direction
+		return
 	end
 end
 
 function Weapon:onCrankChangeShotgun(change)
-	if not self.Shotgun_accum then
-		self.Shotgun_accum = 0
-		self.Shotgun_lastDir = 0
-	end
 	if not change or change == 0 then return end
+	if self.weaponState == "firing" or (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0) then 
+		return 
+	end
+
 	local dir = 0
 	if change > 0 then dir = 1 elseif change < 0 then dir = -1 end
 	local absc = math.abs(change)
 	
-	if self:isOnCooldown() then
-		self:setState("idle")
+	if self.Shotgun_stage == 0 then
+		self:onCrankChangeShotgunPump(dir, absc)
+	elseif self.Shotgun_stage == 1 then
+		self:onCrankChangeShotgunFire(dir, absc)
+	end
+end
+
+function Weapon:onCrankChangeShotgunPump(dir, absc)
+	if dir == -1 then
+		if self.Shotgun_lastDir == -1 or self.Shotgun_lastDir == 0 then
+			self.Shotgun_accum = self.Shotgun_accum + absc
+		else
+			self.Shotgun_accum = absc
+		end
+		self.Shotgun_lastDir = -1
+		
+		if self.Shotgun_accum >= (self.Shotgun_ArcSize or 150) then
+			if self.Shotgun_sfxPump then pcall(function() self.Shotgun_sfxPump:play(1) end) end
+			self:setState("cocked")
+			local excess = self.Shotgun_accum - (self.Shotgun_ArcSize or 150)
+			self.Shotgun_stage = 1
+			self.Shotgun_accum = excess
+		else
+			self:setState("winding")
+		end
+	else
+		-- Ignore opposite direction
 		return
 	end
-	
-	if dir ~= (self.Shotgun_lastDir or 0) and (self.Shotgun_lastDir or 0) ~= 0 then
-		self.Shotgun_accum = 0
+end
+
+function Weapon:onCrankChangeShotgunFire(dir, absc)
+	if dir == 1 then
+		if self.Shotgun_lastDir == 1 or self.Shotgun_lastDir == 0 then
+			self.Shotgun_accum = self.Shotgun_accum + absc
+		else
+			self.Shotgun_accum = absc
+		end
+		self.Shotgun_lastDir = 1
+		
+		if self.Shotgun_accum >= (self.Shotgun_ArcSize or 150) then
+			self.Shotgun_pendingFire = true
+			self:startCooldown()
+			local excess = self.Shotgun_accum - (self.Shotgun_ArcSize or 150)
+			self.Shotgun_stage = 0
+			self.Shotgun_accum = excess
+		else
+			self:setState("winding")
+		end
+	else
+		-- Ignore opposite direction
+		return
 	end
-	self.Shotgun_lastDir = dir
-	self.Shotgun_accum = (self.Shotgun_accum or 0) + absc
-	self:setState("winding")
-	
-	if (self.Shotgun_accum or 0) >= (self.Shotgun_ArcSize or 360) then
-		-- Fire (returns true if had ammo, but fires anyway even at 0 ammo)
-		self:fire(2)
-		local shootFrames = self.Shotgun_shootFrames
-		self.Shotgun_fireTicks = (shootFrames and #shootFrames) or 3
-		self.Shotgun_fireFrameIndex = 1
-		-- Always start cooldown and reset on complete rotation
-		self:startCooldown()
-		self.Shotgun_accum = 0
-		self.Shotgun_lastDir = 0
-	end
-	self:bumpFireFrame(change)
 end
 
 function Weapon:onCrankChangeDefault(change)
@@ -310,6 +381,19 @@ end
 
 -- Helper methods for weapon state management
 function Weapon:setState(newState)
+	-- Fundamental lock: if we are in the middle of a firing animation, 
+	-- do not allow ANY other state change (like winding or idle)
+	if self.weaponState == "firing" and newState ~= "firing" then
+		local hasTicks = false
+		if self.weaponType == "Revolver" then
+			hasTicks = (self.Revolver_fireTicks and self.Revolver_fireTicks > 0)
+		elseif self.weaponType == "Shotgun" then
+			hasTicks = (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0)
+		end
+		
+		if hasTicks then return end
+	end
+	
 	self.weaponState = newState
 end
 
@@ -454,7 +538,11 @@ function Weapon:drawRevolver(cx, cy)
 	if reloadFrames and #reloadFrames > 0 then
 		local reloadIndex = self.Revolver_idleFrameIndex or 1
 		if self.weaponState ~= "idle" then
-			reloadIndex = self:getRevolverReloadFrameIndex(reloadFrames)
+			if self.Revolver_stage == 0 then
+				reloadIndex = self:getRevolverReloadFrameIndex(reloadFrames)
+			else
+				reloadIndex = #reloadFrames
+			end
 		end
 		local reloadFrame = reloadFrames[reloadIndex]
 		if reloadFrame and reloadFrame.drawCentered then
@@ -481,7 +569,11 @@ function Weapon:drawShotgun(cx, cy)
 	if reloadFrames and #reloadFrames > 0 then
 		local reloadIndex = self.Shotgun_idleFrameIndex or 1
 		if self.weaponState ~= "idle" then
-			reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
+			if self.Shotgun_stage == 0 then
+				reloadIndex = self:getShotgunReloadFrameIndex(reloadFrames)
+			else
+				reloadIndex = #reloadFrames
+			end
 		end
 		local reloadFrame = reloadFrames[reloadIndex]
 		if reloadFrame and reloadFrame.drawCentered then
@@ -540,7 +632,7 @@ end
 function Weapon:loadShotgunReloadFrames()
 	local frames = {}
 	local basePath = "Sprites/Gun viewmodel/SGN_Reload/SGN_Reload - "
-	local frameNumbers = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
+	local frameNumbers = {16, 17, 18, 19, 20, 21}
 	for _, n in ipairs(frameNumbers) do
 		local img = gfx.image.new(basePath .. tostring(n))
 		if img then
@@ -574,7 +666,7 @@ end
 
 function Weapon:getShotgunReloadFrameIndex(frames)
 	if not frames or #frames == 0 then return 1 end
-	local arc = self.Shotgun_ArcSize or 360
+	local arc = self.Shotgun_ArcSize or 150
 	local accum = self.Shotgun_accum or 0
 	local progress = math.max(0, math.min(1, accum / arc))
 	local index = math.floor(progress * (#frames - 1)) + 1
