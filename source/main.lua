@@ -230,8 +230,10 @@ function playdate.update()
         currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
         local newType = weaponTypes[currentWeaponIndex]
         if currentWeapon and currentWeapon.setType then
+            print("Change weapon to " .. newType)
             currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
         else
+            print ("Switching weapon to " .. newType)
             currentWeapon = Weapon.new(newType)
         end
     end

@@ -26,7 +26,7 @@ function Weapon:init(typeName, ammo)
 	self:initByType(self.weaponType)
 end
 
-function Weapon:initByType(t)
+function Weapon:initByType(t, ammmo)
 	if t == "Minigun" then
 		self.maxWindUp = 25
 		self.maxCooldown = 10
@@ -80,6 +80,7 @@ function Weapon:initByType(t)
 	self.windUpTime = 0
 	self.cooldownTime = self.maxCooldown
 	self.firingFrame = 0
+	self.Ammo = ammmo or 100
 	self.weaponState = "idle"
 end
 
