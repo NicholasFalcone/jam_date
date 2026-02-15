@@ -3,12 +3,8 @@ class('UI').extends()
 local gfx = playdate.graphics
 
 function UI:init()
-    -- Default to HUD so UI() created in main.lua (for gameplay) doesn't show the menu
+    -- IMPORTANT: gameplay UI() instances should default to HUD
     self.screen = "hud" -- "menu" | "howto" | "credits" | "hud" | "hidden"
-
-    -- Fonts: bold for titles, normal for body
-    self.fontTitle = gfx.getSystemFont(gfx.font.kVariantBold)
-    self.fontBody  = gfx.getSystemFont(gfx.font.kVariantNormal)
 
     -- Main menu
     self.menuOptions = { "Play", "How to play", "Credits" }
@@ -28,16 +24,30 @@ function UI:init()
     self.crankStepDegMenu = 18
     self.crankStepDegHowto = 25
 
-    -- Placeholder images (safe if missing)
-    -- Put your images later in:
-    --   source/images/howto/
-    -- names (no extension in code):
-    --   basics_main.png, revolver_gun.png, minigun_gun.png, shotgun_gun.png, playdate_icon.png
-    self.imgBasicsMain = self:loadImage("images/howto/basics_main")
+    -- How-to placeholder images (safe if missing)
+    -- Put these in: source/images/howto/
+    -- names (NO extension in code):
+    -- basics_main.png, revolver_gun.png, minigun_gun.png, shotgun_gun.png, playdate_icon.png
+    self.imgBasicsMain  = self:loadImage("images/howto/basics_main")
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
     self.imgMinigunGun  = self:loadImage("images/howto/minigun_gun")
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
     self.imgPlaydate    = self:loadImage("images/howto/playdate_icon")
+
+    -- HUD bullet sprites (safe if missing)
+    -- Put these in: source/images/ui/
+    -- names:
+    -- Bullet_Shotgun.png, Bullet_Revolver.png, Bullet_Minigun.png
+    self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
+    self.imgBulletRevolver = self:loadImage("images/ui/Bullet_Revolver")
+    self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
+
+    -- HUD ammo tracking
+    self.hudWeaponType = nil
+    self.hudMaxAmmo = 0
+
+    -- Bullet layout cache: cache[weaponType][maxAmmo] = { {x=...,y=...}, ... }
+    self.bulletPosCache = {}
 end
 
 function UI:loadImage(pathNoExt)
@@ -52,6 +62,7 @@ function UI:setScreen(name)
     end
 end
 
+-- Used by GameManager to gate main.lua's "press A" start without touching main.lua
 function UI:canStart()
     return self.screen == "menu" and self.menuIndex == 1
 end
@@ -70,9 +81,10 @@ end
 
 function UI:howtoMove(dir)
     local newIndex = self.howtoIndex + dir
-    newIndex = clamp(newIndex, 1, #self.howtoPages)
-    self.howtoIndex = newIndex
+    self.howtoIndex = clamp(newIndex, 1, #self.howtoPages)
 end
+
+-- ---------- UPDATE ----------
 
 function UI:update()
     if self.screen == "hidden" or self.screen == "hud" then
@@ -87,6 +99,7 @@ function UI:update()
             self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
         end
 
+        -- Crank navigation (menu)
         local crankDelta = playdate.getCrankChange()
         if crankDelta ~= 0 then
             self.crankAccum = self.crankAccum + crankDelta
@@ -102,6 +115,7 @@ function UI:update()
             end
         end
 
+        -- Confirm
         if playdate.buttonJustPressed(playdate.kButtonA) then
             if self.menuIndex == 1 then return "play" end
             if self.menuIndex == 2 then return "howto" end
@@ -111,7 +125,7 @@ function UI:update()
         return nil
     end
 
-    -- HOW TO PLAY
+    -- HOW TO PLAY (4 pages)
     if self.screen == "howto" then
         if playdate.buttonJustPressed(playdate.kButtonB) then
             return "back"
@@ -153,10 +167,16 @@ function UI:update()
     return nil
 end
 
+-- ---------- DRAW HELPERS ----------
+
+local function drawCenteredText(text, y)
+    local w, _ = gfx.getTextSize(text)
+    gfx.drawText(text, (400 - w) / 2, y)
+end
+
 local function drawPlaceholderBox(x, y, w, h, label)
     gfx.drawRect(x, y, w, h)
     if label then
-        gfx.setFont(gfx.getSystemFont(gfx.font.kVariantNormal))
         gfx.drawText(label, x + 6, y + 6)
     end
 end
@@ -168,7 +188,6 @@ local function drawHowtoFrame(showUp, showDown)
 
     gfx.drawRect(10, 10, 380, 220)
 
-    -- Conditional arrows
     if showUp then
         gfx.fillTriangle(200, 6, 192, 18, 208, 18)
     end
@@ -177,33 +196,183 @@ local function drawHowtoFrame(showUp, showDown)
     end
 end
 
-local function drawCenteredBoldTitle(ui, text, y)
-    gfx.setFont(ui.fontTitle)
-
-    local w, _ = gfx.getTextSize(text)
-    local x = (400 - w) / 2
-
-    -- draw twice (slightly thicker = reads “bigger”)
-    gfx.drawText(text, x, y)
-    gfx.drawText(text, x, y + 1)
-end
-
-local function drawBackBottomRight(ui)
-    gfx.setFont(ui.fontBody)
+local function drawBackBottomRight()
     local label = "B: Back"
     local w, _ = gfx.getTextSize(label)
     local x = 400 - w - 18
-    local y = 240 - 28 -- "a bit up"
+    local y = 240 - 28
     gfx.drawText(label, x, y)
 end
 
-function UI:draw(currentWeapon)
-    -- HUD / hidden: only ammo
-    if self.screen == "hidden" or self.screen == "hud" then
-        if currentWeapon and currentWeapon.Ammo ~= nil then
-            gfx.setFont(self.fontBody)
-            gfx.drawText("Ammo: " .. tostring(currentWeapon.Ammo), 10, 10)
+-- Build bullet positions in the exact disappearance order:
+-- columns: left -> right
+-- within a column: bottom -> top
+-- FIX: partial (last) columns are TOP-aligned so they don't start too low.
+function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
+    self.bulletPosCache[weaponType] = self.bulletPosCache[weaponType] or {}
+    local cacheForWeapon = self.bulletPosCache[weaponType]
+
+    local key = tostring(maxAmmo) .. ":" .. tostring(bulletW) .. "x" .. tostring(bulletH)
+    if cacheForWeapon[key] then
+        return cacheForWeapon[key]
+    end
+
+    -- Area on the right side under the weapon icon
+    local topY = 54
+    local bottomY = 226
+
+    local stepY = bulletH + 2
+    local stepX = bulletW + 3
+
+    -- Max rows that can fit
+    local rows = math.floor((bottomY - topY) / stepY)
+    if rows < 1 then rows = 1 end
+
+    local colCount = math.ceil(maxAmmo / rows)
+    if colCount < 1 then colCount = 1 end
+
+    -- Right-aligned columns
+    local rightX = 400 - 18 - bulletW
+    local leftX = rightX - (colCount - 1) * stepX
+
+    local positions = {}
+    local idx = 1
+    local remaining = maxAmmo
+
+    for col = 0, (colCount - 1) do
+        local x = leftX + col * stepX
+
+        -- bullets in this column (last column can be partial)
+        local bulletsInCol = rows
+        if remaining < rows then bulletsInCol = remaining end
+        if bulletsInCol < 0 then bulletsInCol = 0 end
+
+        -- TOP-align this column: its top bullet starts at topY
+        -- but index order remains bottom->top
+        for row = 0, (bulletsInCol - 1) do
+            if idx > maxAmmo then break end
+
+            -- row=0 should be the bottom bullet (for disappearance order)
+            local y = topY + (bulletsInCol - 1 - row) * stepY
+
+            positions[idx] = { x = x, y = y }
+            idx = idx + 1
         end
+
+        remaining = remaining - bulletsInCol
+        if remaining <= 0 then break end
+    end
+
+    cacheForWeapon[key] = positions
+    return positions
+end
+
+
+function UI:drawHud(currentWeapon)
+-- Hide/stop the system crank indicator (robust across SDK versions)
+if playdate.ui and playdate.ui.crankIndicator then
+    local ci = playdate.ui.crankIndicator
+    local ok = false
+
+    if ci.stop then
+        ok = pcall(function() ci:stop() end)
+    end
+    if (not ok) and ci.hide then
+        ok = pcall(function() ci:hide() end)
+    end
+    if (not ok) and ci.setVisible then
+        pcall(function() ci:setVisible(false) end)
+    end
+end
+
+
+    if not currentWeapon then return end
+
+    local weaponType = currentWeapon.weaponType or "Minigun"
+    local ammo = currentWeapon.Ammo or 0
+    if ammo < 0 then ammo = 0 end
+
+    -- Detect weapon change or reload -> reset max ammo
+    if self.hudWeaponType ~= weaponType then
+        self.hudWeaponType = weaponType
+        self.hudMaxAmmo = ammo
+    elseif ammo > (self.hudMaxAmmo or 0) then
+        -- reload (ammo increased)
+        self.hudMaxAmmo = ammo
+    end
+
+    local maxAmmo = self.hudMaxAmmo or ammo
+    if maxAmmo < ammo then maxAmmo = ammo end
+
+    -- Weapon icon (top-right): use same images as how-to
+    local iconImg = nil
+    if weaponType == "Minigun" then iconImg = self.imgMinigunGun end
+    if weaponType == "Revolver" then iconImg = self.imgRevolverGun end
+    if weaponType == "Shotgun" then iconImg = self.imgShotgunGun end
+
+    if iconImg then
+        local w, h = iconImg:getSize()
+        local x = 400 - 18 - w
+        local y = 12
+        iconImg:draw(x, y)
+    else
+        -- fallback placeholder
+        drawPlaceholderBox(400 - 18 - 48, 12, 48, 24, "WPN")
+    end
+
+    -- Bullet sprite by weapon type
+    local bulletImg = self.imgBulletMinigun
+    if weaponType == "Revolver" then bulletImg = self.imgBulletRevolver end
+    if weaponType == "Shotgun" then bulletImg = self.imgBulletShotgun end
+
+    -- Scale only Minigun bullets (your asset is large, e.g. 30x8)
+    -- Change this value to tune size:
+    -- 0.20 smaller, 0.25 medium, 0.30 bigger
+    local bulletScale = 1.0
+    if weaponType == "Minigun" then
+        bulletScale = 0.30
+    end
+
+    local bulletW, bulletH = 6, 6
+    if bulletImg then
+        local w, h = bulletImg:getSize()
+        bulletW = math.max(1, math.floor(w * bulletScale + 0.5))
+        bulletH = math.max(1, math.floor(h * bulletScale + 0.5))
+    end
+
+    -- Disappearance logic:
+    -- consumed = maxAmmo - ammo
+    -- bullets disappear starting from index 1 (left col, bottom) upward, then next column.
+    local consumed = maxAmmo - ammo
+    if consumed < 0 then consumed = 0 end
+    if consumed > maxAmmo then consumed = maxAmmo end
+
+    local positions = self:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
+
+    -- draw visible bullets: indices (consumed+1 .. maxAmmo)
+    for i = (consumed + 1), maxAmmo do
+        local p = positions[i]
+        if p then
+            if bulletImg then
+                if bulletScale == 1.0 then
+                    bulletImg:draw(p.x, p.y)
+                else
+                    bulletImg:drawScaled(p.x, p.y, bulletScale)
+                end
+            else
+                -- fallback bullet
+                gfx.fillRect(p.x, p.y, bulletW, bulletH)
+            end
+        end
+    end
+end
+
+-- ---------- DRAW ----------
+
+function UI:draw(currentWeapon)
+    -- HUD / hidden
+    if self.screen == "hidden" or self.screen == "hud" then
+        self:drawHud(currentWeapon)
         return
     end
 
@@ -213,16 +382,13 @@ function UI:draw(currentWeapon)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorBlack)
 
-        drawCenteredBoldTitle(self, "MAIN MENU", 26)
+        drawCenteredText("MAIN MENU", 28)
 
-        gfx.setFont(self.fontBody)
-        local startY = 92
+        local startY = 90
         local lineH = 22
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "
-            local txt = prefix .. label
-            local w, _ = gfx.getTextSize(txt)
-            gfx.drawText(txt, (400 - w) / 2, startY + (i - 1) * lineH)
+            drawCenteredText(prefix .. label, startY + (i - 1) * lineH)
         end
 
         gfx.drawText("Arrows/Crank: Select   A: Confirm", 10, 220)
@@ -233,18 +399,17 @@ function UI:draw(currentWeapon)
     if self.screen == "howto" then
         local showUp = (self.howtoIndex > 1)
         local showDown = (self.howtoIndex < #self.howtoPages)
-
-        -- Your special rule: Basics only down, Shotgun only up, middle both
         drawHowtoFrame(showUp, showDown)
 
         local page = self.howtoPages[self.howtoIndex]
-        drawCenteredBoldTitle(self, page.title, 18)
+        drawCenteredText(page.title, 20)
 
         -- Layout
         local leftX, leftY, leftW, leftH = 30, 60, 170, 130
-        local textX, textY = 200, 60
 
-        gfx.setFont(self.fontBody)
+        -- BODY TEXT moved left and constrained so it won't touch the right border line
+        local textX, textY = 200, 60
+        local textW, textH = 170, 150
 
         if page.key == "basics" then
             if self.imgBasicsMain then
@@ -252,8 +417,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "BASICS IMG")
             end
-            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
 
+            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
 
         elseif page.key == "revolver" then
             if self.imgRevolverGun then
@@ -261,8 +426,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "REVOLVER IMG")
             end
-            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
 
+            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
@@ -276,8 +441,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "MINIGUN IMG")
             end
-            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
 
+            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
@@ -291,8 +456,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "SHOTGUN IMG")
             end
-            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
 
+            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
@@ -301,8 +466,7 @@ function UI:draw(currentWeapon)
             end
         end
 
-        -- Removed the "Up/Down or Crank..." line (per request)
-        drawBackBottomRight(self)
+        drawBackBottomRight()
         return
     end
 
@@ -312,10 +476,8 @@ function UI:draw(currentWeapon)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorBlack)
 
-        drawCenteredBoldTitle(self, "CREDITS", 26)
-
-        gfx.setFont(self.fontBody)
-        drawBackBottomRight(self)
+        drawCenteredText("CREDITS", 30)
+        drawBackBottomRight()
         return
     end
 end
