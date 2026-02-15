@@ -242,7 +242,7 @@ function UI:draw(currentWeapon)
 
         -- Layout
         local leftX, leftY, leftW, leftH = 30, 60, 170, 130
-        local textX, textY = 220, 60
+        local textX, textY = 200, 60
 
         gfx.setFont(self.fontBody)
 
@@ -252,7 +252,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "BASICS IMG")
             end
-            gfx.drawText(page.text, textX, textY)
+            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
+
 
         elseif page.key == "revolver" then
             if self.imgRevolverGun then
@@ -260,7 +261,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "REVOLVER IMG")
             end
-            gfx.drawText(page.text, textX, textY)
+            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
+
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
@@ -274,7 +276,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "MINIGUN IMG")
             end
-            gfx.drawText(page.text, textX, textY)
+            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
+
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
@@ -288,7 +291,8 @@ function UI:draw(currentWeapon)
             else
                 drawPlaceholderBox(leftX, leftY, leftW, leftH, "SHOTGUN IMG")
             end
-            gfx.drawText(page.text, textX, textY)
+            gfx.drawTextInRect(page.text, textX, textY, 170, 150)
+
 
             if self.imgPlaydate then
                 self.imgPlaydate:draw(300, 150)
