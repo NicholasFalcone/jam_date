@@ -24,6 +24,7 @@ local audioManager = AudioManager()
 
 function GameManager:init()
 	self.currentState = GAME_STATE.IDLE
+	self.prevState = self.currentState
 	self.score = 0
 	self.waveCount = 0
 	self.timeAlive = 0
@@ -48,6 +49,8 @@ function GameManager:init()
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
 	self.gameOverCrankStepDeg = 18
+	self.SFX_RollingDice = audioManager:loadSample("sounds/SFX_DiceRoll")
+	self.SFX_GameOver = audioManager:loadSample("sounds/SFX_GameOver")
 
 	-- Phase for rolling
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
@@ -112,6 +115,7 @@ function GameManager:setState(newState)
 		end
 	end
 
+	self.prevState = self.currentState
 	self.currentState = newState
 
 	if newState == GAME_STATE.IDLE then
@@ -159,10 +163,11 @@ function GameManager:onRunningEnter()
 	self.timeAlive = 0
 	self.enemiesDefeated = 0
 	self.playerHealth = self.maxPlayerHealth
-
-	if music then music:stop() end
-	music = audioManager:loadMusic("sounds/Music_Game")
-	if music then music:play(0) end
+	if self.prevState == GAME_STATE.IDLE then
+		if music then music:stop() end
+		music = audioManager:loadMusic("sounds/Music_Game")
+		if music then music:play(0) end
+	end
 end
 
 function GameManager:onRollingEnter()
@@ -187,7 +192,6 @@ function GameManager:onRollingEnter()
 end
 
 function GameManager:triggerDiceRoll()
-	print("Swing detected! Rolling dice...")
 	self.rollingPhase = ROLLING_PHASE.RESULTS
 	self.rolledThisFrame = true
 	
@@ -210,6 +214,11 @@ end
 function GameManager:onGameOverEnter()
 	self.gameOverIndex = 1 -- default selection: Play Again
 	self.gameOverCrankAccum = 0
+	if music then music:stop() end
+	
+	if self.SFX_GameOver then
+		pcall(function() self.SFX_GameOver:play(1) end)
+	end
 end
 
 function GameManager:onPausedEnter()
