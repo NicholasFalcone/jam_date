@@ -14,11 +14,10 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.health = _health  -- Richiede 3 colpi per morire
     self.speed = _speed or 0.005
     self.spawnIndex = _spawnIndex
-    self.SFX_Death = audioManager:loadSample("SFX_EnemyDeath.mp3")
-    self.SFX_Hit = audioManager:loadSample("SFX_EnemyHit.mp3")
-    self.SFX_EnemyReachesPlayer = audioManager:loadSample("SFX_EnemyReachesPlayer.mp3")
+    self.SFX_Death = audioManager:loadSample("SFX_EnemyDeath")
+    self.SFX_Hit = audioManager:loadSample("SFX_EnemyHit")
+    self.SFX_EnemyReachesPlayer = audioManager:loadSample("SFX_EnemyReachesPlayer")
 end
-
 
 function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     if self.hitTimer > 0 then

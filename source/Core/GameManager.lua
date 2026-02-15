@@ -92,7 +92,7 @@ function GameManager:onIdleEnter()
 	self.playerHealth = self.maxPlayerHealth
 	print("Running state entered.")
 	if music then music:stop() end -- Stop menu music
-	music = audioManager:loadSample("sounds/Music_Menu.mp3") -- Example of loading a sound sample for the idle state
+	music = audioManager:loadSample("sounds/Music_Menu") -- Example of loading a sound sample for the idle state
 	if music then 
 		music:play(0) 
 	else 
@@ -106,7 +106,7 @@ function GameManager:onRunningEnter()
 	self.waveCount = 1
 	print("Running state entered.")
 	if music then music:stop() end -- Stop menu music
-	music = audioManager:loadSample("sounds/Music_Mame.mp3") -- Example of loading a sound sample for the idle state
+	music = audioManager:loadSample("sounds/Music_Game") -- Example of loading a sound sample for the idle state
 	if music then 
 		music:play(0) 
 	else
