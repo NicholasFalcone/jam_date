@@ -2,6 +2,7 @@ class('GameManager').extends()
 
 import "Game/Dice"
 import "Core/AudioManager"
+import "Core/UI"
 
 -- Game states
 local GAME_STATE = {
@@ -28,6 +29,11 @@ function GameManager:init()
 	self.ammoDice = {}       -- 4 black dice for ammo amount
 	self.rolledWeapon = nil  -- Result: weapon type (1-2 = Minigun, 3-4 = Revolver, 5-6 = Shotgun)
 	self.rolledAmmo = 0      -- Result: total ammo from 4 dice
+
+	-- UI is managed by GameManager for non-gameplay screens (menu / howto / credits)
+	-- main.lua can keep its own UI instance for in-game HUD.
+	self.ui = UI()
+	self.ui:setScreen("menu")
 end
 
 function GameManager:update(deltaTime)
@@ -38,6 +44,15 @@ end
 
 function GameManager:setState(newState)
 	if newState == self.currentState then return end
+
+	-- IMPORTANT: main.lua currently starts the game on *any* A press while IDLE.
+	-- We cannot change main.lua, so we gate the transition here and only allow
+	-- starting when the UI is on the menu and the selection is "Play".
+	if self.currentState == GAME_STATE.IDLE and newState == GAME_STATE.RUNNING then
+		if self.ui and self.ui.canStart and not self.ui:canStart() then
+			return
+		end
+	end
 	
 	local oldState = self.currentState
 	self.currentState = newState
@@ -91,6 +106,9 @@ function GameManager:onIdleEnter()
 	self.enemiesDefeated = 0
 	self.playerHealth = self.maxPlayerHealth
 	print("Running state entered.")
+	if self.ui and self.ui.setScreen then
+		self.ui:setScreen("menu")
+	end
 	if music then music:stop() end -- Stop menu music
 	music = audioManager:loadSample("sounds/Music_Menu.mp3") -- Example of loading a sound sample for the idle state
 	if music then 
@@ -202,8 +220,24 @@ function GameManager:drawIdleScreen(gfx)
 	-- Clear and set white background
 	gfx.setColor(gfx.kColorWhite)
 	gfx.fillRect(0, 0, 400, 240)
-	
-	-- Draw text in black
+	gfx.setColor(gfx.kColorBlack)
+
+	-- If UI exists, use it for the menu flow.
+	if self.ui then
+		local action = self.ui:update()
+		if action == "howto" then
+			self.ui:setScreen("howto")
+		elseif action == "credits" then
+			self.ui:setScreen("credits")
+		elseif action == "back" then
+			self.ui:setScreen("menu")
+		end
+
+		self.ui:draw(nil)
+		return
+	end
+
+	-- Fallback (in case UI failed to load)
 	gfx.setColor(gfx.kColorBlack)
 	gfx.drawText("JAM DATE", 5, 50)
 	gfx.drawText("Press A Button to START", 5, 100)
