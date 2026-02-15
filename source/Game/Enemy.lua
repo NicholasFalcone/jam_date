@@ -39,10 +39,13 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY)
                     local size = 10 + scale * 80
 
                     if crossX and crossY then
+                        -- Center hit detection on the actual enemy position (upper part of the body)
+                        local ey_center = ey - size / 2
                         local dx = math.abs(ex - crossX)
-                        local dy = math.abs(ey - crossY)
-                        local hitThresholdX = math.max(8, size * 0.4)
-                        local hitThresholdY = math.max(8, size * 0.4)
+                        local dy = math.abs(ey_center - crossY)
+                        -- Larger hitbox to cover the entire enemy sprite
+                        local hitThresholdX = math.max(12, size * 0.5)
+                        local hitThresholdY = math.max(16, size * 0.6)
                         if dx <= hitThresholdX and dy <= hitThresholdY then
                             self:hit()
                         end
