@@ -40,7 +40,7 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
         else
             if weapon.weaponState == "firing" then
                     -- compute enemy screen position and compare with crosshair
-                    local horizonY = 120
+                    local horizonY = 112
                     local groundY = 240
                     local relAngle = (self.angle - playerRotation)
                     local ex = 200 + relAngle * 6
@@ -117,7 +117,7 @@ end
 
 
 function Enemy:draw(playerRotation)
-    local horizonY = 120
+    local horizonY = 112
     local groundY = 240
 
     local relAngle = (self.angle - (playerRotation or 0))
@@ -134,10 +134,12 @@ function Enemy:draw(playerRotation)
     else
         -- Draw sprite scaled based on distance
         if self.sprite then
-            local scaledWidth = math.floor(self.sprite.width * scale)
-            local scaledHeight = math.floor(self.sprite.height * scale)
+            local sw, sh = self.sprite:getSize()
+            local scaledWidth = math.floor(sw * scale)
+            local scaledHeight = math.floor(sh * scale)
             local scaledImage = self.sprite:scaledImage(scale)
-            scaledImage:draw(x - scaledWidth/2, y - scaledHeight/2)
+            -- Draw so the bottom of the sprite sits on the ground line (y)
+            scaledImage:draw(x - scaledWidth/2, y - scaledHeight)
         end
         
         -- Show hit effect on top of sprite
