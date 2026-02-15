@@ -166,7 +166,6 @@ function updateEnemies()
         for i = 1, toSpawn do
             local idx = freeIndices[i]
             local angle = spawnPoints[idx]
-            print("Spawning enemy with health: " .. enemyStartingHealth)
             local e = Enemy(enemyStartingHealth, angle, enemySpeed, idx)
             table.insert(enemies, e)
         end
@@ -271,7 +270,6 @@ function playdate.update()
             -- Complete reset when going back from game over
             enemies = {}
             needsWeaponRoll = false
-            print("Resetting game from Game Over state.")
             -- Reset spawn variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now

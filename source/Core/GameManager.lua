@@ -238,7 +238,7 @@ local function formatTimeHMS(seconds)
 	s = s - h * 3600
 	local m = math.floor(s / 60)
 	s = s - m * 60
-	return string.format("%02d:%02d:%02d", h, m, s)
+	return string.format("%02d:%02d", m, s)
 end
 
 function GameManager:drawGameOverScreen(g)
