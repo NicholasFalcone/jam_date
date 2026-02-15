@@ -95,16 +95,16 @@ end
 
 function GameManager:onRollingEnter()
 	-- Rolling state entered - initialize dice
-	-- Create weapon die (white)
+	-- Create weapon dice (white)
 	self.weaponDice = Dice()
 	self.weaponDice:roll()
 	
 	-- Create 4 ammo dice (black)
 	self.ammoDice = {}
 	for i = 1, 4 do
-		local die = Dice()
-		die:roll()
-		table.insert(self.ammoDice, die)
+		local dice = Dice()
+		dice:roll()
+		table.insert(self.ammoDice, dice)
 	end
 	
 	-- Calculate results
@@ -134,8 +134,12 @@ function GameManager:calculateRollingResults()
 	-- Ammo dice: sum of 4 black dice
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
-		self.rolledAmmo = self.rolledAmmo + die.value
-	end
+        if weaponRoll <= 2 then
+            self.rolledAmmo = self.rolledAmmo + (die.value * 5) -- Minigun gets dice * multi ammo
+        else
+            self.rolledAmmo = self.rolledAmmo + die.value
+        end
+    end
 end
 
 -- Score management
