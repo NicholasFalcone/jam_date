@@ -1,9 +1,12 @@
 class('GameManager').extends()
 
+import "Game/Dice"
+
 -- Game states
 local GAME_STATE = {
 	IDLE = "idle",           -- Main menu / waiting to start
 	RUNNING = "running",     -- Active gameplay
+	ROLLING = "rolling",     -- Dice rolling for ammo/weapon
 	GAME_OVER = "gameOver",  -- Player defeated
 	PAUSED = "paused"        -- Game paused
 }
@@ -16,6 +19,12 @@ function GameManager:init()
 	self.enemiesDefeated = 0
 	self.playerHealth = 100
 	self.maxPlayerHealth = 100
+	
+	-- Rolling state variables
+	self.weaponDice = nil     -- White dice for weapon selection
+	self.ammoDice = {}       -- 4 black dice for ammo amount
+	self.rolledWeapon = nil  -- Result: weapon type (1-2 = Minigun, 3-4 = Revolver, 5-6 = Shotgun)
+	self.rolledAmmo = 0      -- Result: total ammo from 4 dice
 end
 
 function GameManager:update(deltaTime)
@@ -35,6 +44,8 @@ function GameManager:setState(newState)
 		self:onIdleEnter()
 	elseif newState == GAME_STATE.RUNNING then
 		self:onRunningEnter()
+	elseif newState == GAME_STATE.ROLLING then
+		self:onRollingEnter()
 	elseif newState == GAME_STATE.GAME_OVER then
 		self:onGameOverEnter()
 	elseif newState == GAME_STATE.PAUSED then
@@ -62,6 +73,10 @@ function GameManager:isPaused()
 	return self.currentState == GAME_STATE.PAUSED
 end
 
+function GameManager:isRolling()
+	return self.currentState == GAME_STATE.ROLLING
+end
+
 -- State callbacks
 function GameManager:onIdleEnter()
 	-- Reset game variables for new run
@@ -78,12 +93,49 @@ function GameManager:onRunningEnter()
 	self.waveCount = 1
 end
 
+function GameManager:onRollingEnter()
+	-- Rolling state entered - initialize dice
+	-- Create weapon die (white)
+	self.weaponDice = Dice()
+	self.weaponDice:roll()
+	
+	-- Create 4 ammo dice (black)
+	self.ammoDice = {}
+	for i = 1, 4 do
+		local die = Dice()
+		die:roll()
+		table.insert(self.ammoDice, die)
+	end
+	
+	-- Calculate results
+	self:calculateRollingResults()
+end
+
 function GameManager:onGameOverEnter()
 	-- Player died - game over
 end
 
 function GameManager:onPausedEnter()
 	-- Game paused
+end
+
+-- Calculate rolling results
+function GameManager:calculateRollingResults()
+	-- Weapon dice: 1-2 Minigun, 3-4 Revolver, 5-6 Shotgun
+	local weaponRoll = self.weaponDice.value
+	if weaponRoll <= 2 then
+		self.rolledWeapon = "Minigun"
+	elseif weaponRoll <= 4 then
+		self.rolledWeapon = "Revolver"
+	else
+		self.rolledWeapon = "Shotgun"
+	end
+	
+	-- Ammo dice: sum of 4 black dice
+	self.rolledAmmo = 0
+	for _, die in ipairs(self.ammoDice) do
+		self.rolledAmmo = self.rolledAmmo + die.value
+	end
 end
 
 -- Score management
@@ -104,14 +156,6 @@ function GameManager:takeDamage(amount)
 	end
 end
 
-function GameManager:heal(amount)
-	self.playerHealth = math.min(self.maxPlayerHealth, self.playerHealth + amount)
-end
-
-function GameManager:getHealthPercent()
-	return self.playerHealth / self.maxPlayerHealth
-end
-
 -- Wave management
 function GameManager:nextWave()
 	self.waveCount = self.waveCount + 1
@@ -121,9 +165,14 @@ end
 -- Draw UI
 function GameManager:drawStateScreen(gfx)
 	if self.currentState == GAME_STATE.IDLE then
+        print("Drawing Idle Screen")
 		self:drawIdleScreen(gfx)
+	elseif self.currentState == GAME_STATE.ROLLING then
+		print("Drawing Rolling Screen")
+        self:drawRollingScreen(gfx)
 	elseif self.currentState == GAME_STATE.GAME_OVER then
-		self:drawGameOverScreen(gfx)
+		print("Drawing Game Over Screen")
+        self:drawGameOverScreen(gfx)
 	end
 end
 
@@ -153,6 +202,46 @@ function GameManager:drawGameOverScreen(gfx)
 	gfx.drawText("Enemies: " .. self.enemiesDefeated, 10, 100)
 	gfx.drawText("Time: " .. string.format("%.1f", self.timeAlive) .. "s", 10, 130)
 	gfx.drawText("Press A to restart", 10, 180)
+end
+
+function GameManager:drawRollingScreen(gfx)
+	-- Clear and set black background
+	gfx.setColor(gfx.kColorBlack)
+	
+	-- Draw title
+	gfx.setColor(gfx.kColorWhite)
+	gfx.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
+	
+	-- Draw white die for weapon selection (left side, higher)
+	if self.weaponDice then
+		self.weaponDice:draw(80, 70, false, false) -- white die
+	end
+	
+	-- Draw 4 black dice for ammo (right side, lower)
+	if self.ammoDice and #self.ammoDice == 4 then
+		local baseX = 260
+		local baseY = 60
+		local spacing = 45
+		
+		-- Draw dice in a 2x2 grid
+		self.ammoDice[1]:draw(baseX, baseY, true, false)                          -- top-left
+		self.ammoDice[2]:draw(baseX + spacing, baseY, true, false)                -- top-right
+		self.ammoDice[3]:draw(baseX, baseY + spacing, true, false)                -- bottom-left
+		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false)      -- bottom-right
+	end
+	
+	-- Draw separator line
+	gfx.setColor(gfx.kColorWhite)
+	gfx.drawLine(0, 160, 400, 160)
+	
+	-- Draw text results
+	gfx.setColor(gfx.kColorWhite)
+	local weaponText = "Weapon: " .. (self.rolledWeapon or "?")
+	local ammoText = "Ammo: " .. self.rolledAmmo
+	
+	gfx.drawText(weaponText, 50, 175)
+	gfx.drawText(ammoText, 50, 200)
+	gfx.drawText("Press A to continue", 60, 220)
 end
 
 -- Exports for state constants

@@ -18,10 +18,8 @@ local ticksPerRevolution = 6
 function Input:IsMovingForward()
     local crankTicks = playdate.getCrankTicks(ticksPerRevolution)
     if crankTicks == 1 then
-        print("Moving forward")
         return true
     elseif crankTicks == -1 then
-        print("Moving backward")
         return false
     end
 end
