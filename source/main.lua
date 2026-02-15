@@ -113,6 +113,15 @@ function Init()
     --     enemyStartingHealth = numericValue
     --     print("Enemy health set to: " .. numericValue)
     --     end)
+      -- Caricamento Immagine di Sfondo (versione 500px)
+    backgroundImage = gfx.image.new("Sprites/BackgroundArt.png")
+    
+    if not backgroundImage then
+        bgLoadError = "Img non caricata!"
+    else
+        local w, h = backgroundImage:getSize()
+        bgLoadError = "Caricata: " .. w .. "x" .. h
+    end
 
 end
 
@@ -296,6 +305,7 @@ function playdate.update()
         gameManager:drawStateScreen(gfx)
     else
         -- Draw gameplay UI
+        drawDesert()
         UI:draw(currentWeapon)
         Input.IsMovingForward()
         updateEnemies()
@@ -308,6 +318,20 @@ function playdate.update()
         --playdate.ui.crankIndicator:draw(1,1)
     end
 end
+
+
+-- Funzione per disegnare il deserto con immagine di sfondo
+function drawDesert()
+    -- Disegno Immagine di Sfondo
+    if backgroundImage then
+        backgroundImage:draw(0, 0)
+    else
+        -- Fallback: Sabbia ditherizzata
+        gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer4x4)
+        gfx.fillRect(0, 120, screenWidth, 120)
+    end
+end
+
 
 function drawEnemies()
     for _, e in ipairs(enemies) do
