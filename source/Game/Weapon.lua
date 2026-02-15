@@ -40,7 +40,7 @@ function Weapon:initByType(t, ammo)
 		self.FireRate_DecelerationSpeed = 1.0 -- every X seconds when stopped, decelerate
 		self.FireRate_DecelerationValue = 0.03 -- increase time between shots by this
 		self.FireRate_Max = 0.05 -- cap: minimum time between shots (fastest)
-		self.Damage = 1
+		self.Damage = 100
 		self.isShooting = false
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()
@@ -476,5 +476,5 @@ end
 
 -- Factory helper
 function Weapon.new(t)
-	return Weapon(t, 100) -- default to 100 ammo for testing
+	return Weapon(t, 20) -- default to 100 ammo for testing
 end

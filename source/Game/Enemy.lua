@@ -2,19 +2,20 @@ class('Enemy').extends()
 
 local gfx = playdate.graphics
 
-function Enemy:init(speed)
-    self.angle = math.random(-15, 15)
+function Enemy:init(_health, _angle, _speed, _spawnIndex)
+    self.angle = _angle or math.random(-15, 15)
     self.distance = 1.0
     self.isDead = false
     self.isHitted = false
     self.hitTimer = 0  -- Timer per l'effetto hit
     self.deathTimer = 0
-    self.health = 3  -- Richiede 3 colpi per morire
-    self.speed = 0.005
+    self.health = _health  -- Richiede 3 colpi per morire
+    self.speed = _speed or 0.005
+    self.spawnIndex = _spawnIndex
 end
 
 
-function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon, gameManager)
+function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     if self.hitTimer > 0 then
         self.hitTimer -= 1
         if self.hitTimer <= 0 then
@@ -31,7 +32,7 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon, gameM
             end
             self.isDead = true
         else
-            if weaponState == "firing" then
+            if weapon.weaponState == "firing" then
                     -- compute enemy screen position and compare with crosshair
                     local horizonY = 120
                     local groundY = 240
@@ -51,12 +52,12 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon, gameM
                         local hitThresholdY = math.max(16, size * 0.6)
                         -- Only take damage if weapon has ammo (lastShotValid)
                         if dx <= hitThresholdX and dy <= hitThresholdY and (weapon and weapon.lastShotValid) then
-                            self:hit()
+                            self:hit(weapon.Damage)
                         end
                     else
                         -- fallback to angle-based check if no crosshair provided
                         if math.abs(relAngle) < 5 then
-                            self:hit()
+                            self:hit(weapon.Damage)
                         end
                     end
                 end
@@ -68,19 +69,19 @@ function Enemy:update(weaponState, playerRotation, crossX, crossY, weapon, gameM
     end
 end
 
-
-function Enemy:hit()
+function Enemy:hit(dmg)
     if not self.isHitted then
         self.isHitted = true
-        self.hitTimer = 10  -- Mostra l'effetto per 10 frame (~0.16 sec)
-        self.health -= 1
+        self.hitTimer = 3  -- Mostra l'effetto per 10 frame (~0.16 sec)
+        self.health -= dmg
+        print("Enemy HIT! Health remaining: " .. self.health)
         if self.health <= 0 then
             self.isDead = true
             self.deathTimer = 10
+            print("Enemy DIED")
         end
     end
 end
-
 
 function Enemy:die()
     -- placeholder for any death logic (sound, particles)

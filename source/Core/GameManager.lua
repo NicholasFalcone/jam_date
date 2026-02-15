@@ -169,13 +169,10 @@ end
 -- Draw UI
 function GameManager:drawStateScreen(gfx)
 	if self.currentState == GAME_STATE.IDLE then
-        print("Drawing Idle Screen")
 		self:drawIdleScreen(gfx)
 	elseif self.currentState == GAME_STATE.ROLLING then
-		print("Drawing Rolling Screen")
         self:drawRollingScreen(gfx)
 	elseif self.currentState == GAME_STATE.GAME_OVER then
-		print("Drawing Game Over Screen")
         self:drawGameOverScreen(gfx)
 	end
 end

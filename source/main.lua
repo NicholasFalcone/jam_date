@@ -27,14 +27,14 @@ local spawnAngleMin = -15
 local spawnAngleMax = 15
 
 local spawnN = 1 -- N: number of enemies per spawn (min 1)
-local spawnT = 15.0 -- T: time between spawns in seconds
-local spawnMinT = 1 -- minimum allowed spawn interval (seconds)
+local spawnT = 10.0 -- T: time between spawns in seconds
+local spawnMinT = 0.25 -- minimum allowed spawn interval (seconds)
 
 -- Scaling parameters
 local N_ScaleTime = 15.0 -- every X seconds increase N
 local N_ScaleValue = 1 -- increase value for N
 local T_ScaleTime = 20.0 -- every X seconds modify T
-local T_ScaleValue = 1 -- change in seconds to add to T each interval (can be negative)
+local T_ScaleValue = 0.0 -- change in seconds to add to T each interval (can be negative)
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
@@ -42,7 +42,7 @@ local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.002
+local enemySpeed = 0.005
 local enemyStartingHealth = 100
 
 --- Weapon selection tracking
@@ -85,8 +85,8 @@ function Init()
     local menu = playdate.getSystemMenu()
 
     -- Definiamo i valori dello "slider"
-    local sliderOptions = {"1", "3", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"}
-    local enemyHealthSliderOptions = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
+    -- local sliderOptions = {"1", "3", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"}
+    -- local enemyHealthSliderOptions = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
     --- Spawning menu item variables
     -- menu:addOptionsMenuItem("N_STm:", sliderOptions, N_ScaleTime, function(value)
     --     local numericValue = tonumber(value)
@@ -106,10 +106,11 @@ function Init()
     --     end)
 
     --- Enemy menu item variables
-    menu:addOptionsMenuItem("E..my H:",enemyHealthSliderOptions, enemyStartingHealth, function(value)
-        local numericValue = tonumber(value)
-        enemyStartingHealth = numericValue
-        end)
+    -- menu:addOptionsMenuItem("E..my H:",enemyHealthSliderOptions, 3, function(value)
+    --     local numericValue = tonumber(value)
+    --     enemyStartingHealth = numericValue
+    --     print("Enemy health set to: " .. numericValue)
+    --     end)
 
 end
 
@@ -163,9 +164,8 @@ function updateEnemies()
         for i = 1, toSpawn do
             local idx = freeIndices[i]
             local angle = spawnPoints[idx]
-            local e = Enemy()
-            e.angle = angle
-            e.spawnIndex = idx
+            print("Spawning enemy with health: " .. enemyStartingHealth)
+            local e = Enemy(enemyStartingHealth, angle, enemySpeed, idx)
             table.insert(enemies, e)
         end
 
@@ -175,7 +175,7 @@ function updateEnemies()
     -- update existing enemies and cleanup
     for i = #enemies, 1, -1 do
         local e = enemies[i]
-        e:update(currentWeapon.weaponState, playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
+        e:update(playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
@@ -190,19 +190,6 @@ function updateEnemies()
         gameManager:setState("rolling")
     end
 end
-
-function spawnEnemy()
-    -- simple single spawn (kept for compatibility)
-    local pts = computeSpawnPoints()
-    local idx = math.random(1, #pts)
-    local e = Enemy()
-    e.angle = pts[idx]
-    e.spawnIndex = idx
-    e.speed = enemySpeed
-    e.health = enemyStartingHealth
-    table.insert(enemies, e)
-end
-
 
 
 function DoAim()
