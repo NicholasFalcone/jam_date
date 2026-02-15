@@ -50,7 +50,7 @@ local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.005
+local enemySpeed = 0.003
 local enemyStartingHealth = 100
 
 --- Weapon selection tracking
@@ -199,7 +199,7 @@ function updateEnemies()
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
-        elseif e.distance <= 0 then
+        elseif e.distance <= -0.5 then
             table.remove(enemies, i)
         end
     end

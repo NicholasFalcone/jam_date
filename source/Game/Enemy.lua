@@ -16,7 +16,7 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.spawnIndex = _spawnIndex
     self.SFX_Death = audioManager:loadSample("sounds/SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
-    self.enemyGoalPosition = 0.1 --- Offset from 0 to trigger player damage (reaching the "ground")
+    self.enemyGoalPosition = -0.5 --- Offset from 0 to trigger player damage (reaching the "ground")
     -- Load enemy sprite
     self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
 end
