@@ -16,6 +16,8 @@ import "Game/Weapon"
 import "Game/Dice"
 
 local gfx = playdate.graphics
+local screenWidth = playdate.display.getWidth()
+local screenHeight = playdate.display.getHeight()
 
 local enemies = {}
 local gameManager = GameManager()
@@ -363,9 +365,58 @@ function drawRoad()
         local w = topW + (lineZ * lineZ) * (botW - topW)
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
+
+
+
+        -- Disegna cactus ogni 10 tiles
+        if i % 30 == 0 and i > 0 then
+            -- Dimensione del cactus basata sulla profondità
+            local cactusHeight = 10 + lineZ * 40
+            local cactusWidth = 3 + lineZ * 8
+            
+            -- Posiziona i cactus sui bordi della strada
+            local leftCactusX = centerX - w - cactusWidth * 2
+            local rightCactusX = centerX + w + cactusWidth * 2
+            
+            -- Disegna cactus sinistro
+            if leftCactusX > 0 and leftCactusX < screenWidth then
+                drawSingleCactus(leftCactusX, y, cactusHeight)
+            end
+            
+            -- Disegna cactus destro
+            if rightCactusX > 0 and rightCactusX < screenWidth then
+                drawSingleCactus(rightCactusX, y, cactusHeight)
+            end
+        end
+
     end
 end
 
+
+
+function drawSingleCactus(x, y, w)
+    -- Lazy-load cactus image once
+    if not cactusImage then
+        cactusImage = gfx.image.new("Sprites/Cactus")
+    end
+
+    if cactusImage then
+        local imgW, imgH = cactusImage:getSize()
+        local scale = 1.0
+        if imgW and imgW > 0 then
+            -- Map the provided width value `w` to a scale factor.
+            -- `w` is a small value (depth-based); multiply by 2 to get a visible size.
+            scale = (w * 2) / imgW
+        end
+
+        local scaledImage = cactusImage:scaledImage(scale)
+        if scaledImage then
+            local sw, sh = scaledImage:getSize()
+            -- Draw so the bottom of the sprite sits on the given y (ground line)
+            scaledImage:draw(x - sw / 2, y - sh)
+        end
+    end
+end
 
 
 function drawEnemies()
