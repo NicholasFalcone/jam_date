@@ -200,13 +200,6 @@ local function drawHowtoFrame(showUp, showDown)
     end
 end
 
-local function drawBackBottomRight()
-    local label = "B: Back"
-    local w, _ = gfx.getTextSize(label)
-    local x = 400 - w - 18
-    local y = 240 - 28
-    gfx.drawText(label, x, y)
-end
 
 -- Build bullet positions in the exact disappearance order:
 -- columns: left -> right
@@ -447,7 +440,6 @@ function UI:draw(currentWeapon)
             gfx.fillTriangle(200, 234, 192, 222, 208, 222)
         end
         
-        drawBackBottomRight()
         return
     end
 
@@ -458,7 +450,6 @@ function UI:draw(currentWeapon)
         gfx.setColor(gfx.kColorBlack)
 
         drawCenteredText("CREDITS", 30)
-        drawBackBottomRight()
         return
     end
 end
