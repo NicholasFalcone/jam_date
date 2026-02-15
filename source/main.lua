@@ -230,7 +230,7 @@ function playdate.update()
         currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
         local newType = weaponTypes[currentWeaponIndex]
         if currentWeapon and currentWeapon.setType then
-            currentWeapon:setType(newType)
+            currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
         else
             currentWeapon = Weapon.new(newType)
         end
@@ -244,7 +244,7 @@ function playdate.update()
     updateEnemies()
     DoAim()
     gfx.clear()
-    UI:draw()
+    UI:draw(currentWeapon)
     Input.IsMovingForward()
 
     -- draw enemies
