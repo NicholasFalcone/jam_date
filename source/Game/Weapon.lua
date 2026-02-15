@@ -23,15 +23,15 @@ function Weapon:initByType(t, ammo)
 		self.maxCooldown = 10
 		self.autoFire = true
 		-- Minigun specific params
-		self.MinCrankSpeed = 1.5 -- minimum crank delta to count as forward shooting
-		self.FireRate_Min = 0.2 -- initial time between shots (seconds)
+		self.MinCrankSpeed = 5 -- minimum crank delta to count as forward shooting
+		self.FireRate_Min = 1 -- initial time between shots (seconds)
 		self.FireRate_Current = self.FireRate_Min
-		self.FireRate_AccelerationSpeed = 1.0 -- every X seconds accelerate
-		self.FireRate_AccelerationValue = 0.02 -- reduce time between shots by this
-		self.FireRate_DecelerationSpeed = 1.0 -- every X seconds when stopped, decelerate
-		self.FireRate_DecelerationValue = 0.03 -- increase time between shots by this
-		self.FireRate_Max = 0.05 -- cap: minimum time between shots (fastest)
-		self.Damage = 100
+		self.FireRate_AccelerationSpeed = 0.4-- every X seconds accelerate
+		self.FireRate_AccelerationValue = 0.1 -- reduce time between shots by this
+		self.FireRate_DecelerationSpeed = 0.5 -- every X seconds when stopped, decelerate
+		self.FireRate_DecelerationValue = 0.1 -- increase time between shots by this
+		self.FireRate_Max = 0.1 -- cap: minimum time between shots (fastest)
+		self.Damage = 25
 		self.isShooting = false
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()
@@ -39,11 +39,11 @@ function Weapon:initByType(t, ammo)
 		self.Minigun_sfxShot = audioManager:loadSample("sounds/minigun_shot")
 	elseif t == "Revolver" then
 		self.maxWindUp = 0
-		self.maxCooldown = 30
+		self.maxCooldown = 0
 		self.autoFire = false
 		-- Revolver-specific parameters
-		self.Damage = 3
-		self.Revolver_ArcSize = 180 -- degrees required for each phase (cock + fire)
+		self.Damage = 100
+		self.Revolver_ArcSize = 120 -- degrees required for each phase (cock + fire)
 		self.Revolver_stage = 0 -- 0 = waiting for cock (CCW), 1 = cocked waiting for release (CW)
 		self.Revolver_accum = 0 -- accumulated degrees in current phase
 		self.Revolver_lastDir = 0 -- last crank direction seen
@@ -54,11 +54,11 @@ function Weapon:initByType(t, ammo)
 		self.Revolver_sfxShot = audioManager:loadSample("sounds/revolver_shot")
 	elseif t == "Shotgun" then
 		self.maxWindUp = 0
-		self.maxCooldown = 45
+		self.maxCooldown = 30
 		self.autoFire = false
 		-- Shotgun-specific parameters
-		self.Damage = 4
-		self.Shotgun_ArcSize = 360 -- degrees required for a complete rotation to fire
+		self.Damage = 100
+		self.Shotgun_ArcSize = 300 -- degrees required for a complete rotation to fire
 		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
 		self.Shotgun_lastDir = 0 -- last crank direction seen
 		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
