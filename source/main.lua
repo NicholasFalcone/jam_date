@@ -243,12 +243,18 @@ function playdate.update()
             -- Reset game state and enemy list before starting
             enemies = {}
             -- Reset spawn manager variables
-            lastSpawnTime = playdate.getElapsedTime()
-            lastNScaleTime = playdate.getElapsedTime()
-            lastTScaleTime = playdate.getElapsedTime()
-            spawnN = 1  -- Reset to 1 enemy per spawn
+            local now = playdate.getElapsedTime()
+            lastSpawnTime = now
+            lastNScaleTime = now
+            lastTScaleTime = now
+            spawnN = 2  -- Reset to 2 enemies per spawn
             spawnT = 5  -- Reset spawn interval
             needsWeaponRoll = false
+            
+            -- Reset weapon to default
+            currentWeaponIndex = 1
+            currentWeapon:setType(weaponTypes[currentWeaponIndex], 100)
+            
             gameManager:setState("running")
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
@@ -262,6 +268,9 @@ function playdate.update()
             needsWeaponRoll = false
             gameManager:setState("running")
         elseif gameManager:isGameOver() then
+            -- Reset everything when going back to idle
+            enemies = {}
+            needsWeaponRoll = false
             gameManager:setState("idle")
         end
     end

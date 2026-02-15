@@ -44,6 +44,15 @@ function GameManager:update(deltaTime)
 	end
 end
 
+function GameManager:resetGame()
+	-- Reset all game variables
+	self.score = 0
+	self.waveCount = 0
+	self.timeAlive = 0
+	self.enemiesDefeated = 0
+	self.playerHealth = self.maxPlayerHealth
+end
+
 function GameManager:setState(newState)
 	if newState == self.currentState then return end
 
@@ -102,12 +111,8 @@ local music = nil
 -- State callbacks
 function GameManager:onIdleEnter()
 	-- Reset game variables for new run
-	self.score = 0
-	self.waveCount = 0
-	self.timeAlive = 0
-	self.enemiesDefeated = 0
-	self.playerHealth = self.maxPlayerHealth
-	print("Running state entered.")
+	self:resetGame()
+	print("Idle state entered.")
 	if self.ui and self.ui.setScreen then
 		self.ui:setScreen("menu")
 	end
@@ -147,7 +152,7 @@ function GameManager:onRollingEnter()
 		dice:roll()
 		table.insert(self.ammoDice, dice)
 	end
-	
+
 	if self.SFX_RollingDice then
 		pcall(function() self.SFX_RollingDice:play(1) end)
 	end
