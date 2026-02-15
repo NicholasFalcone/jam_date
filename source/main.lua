@@ -268,9 +268,25 @@ function playdate.update()
             needsWeaponRoll = false
             gameManager:setState("running")
         elseif gameManager:isGameOver() then
-            -- Reset everything when going back to idle
+            -- Complete reset when going back from game over
             enemies = {}
             needsWeaponRoll = false
+            print("Resetting game from Game Over state.")
+            -- Reset spawn variables
+            local now = playdate.getElapsedTime()
+            lastSpawnTime = now
+            lastNScaleTime = now
+            lastTScaleTime = now
+            spawnN = 2
+            spawnT = 5
+            
+            -- Reset weapon completely
+            currentWeaponIndex = 1
+            if currentWeapon.Minigun_rotationPlaying and currentWeapon.Minigun_sfxRotation then
+                pcall(function() currentWeapon.Minigun_sfxRotation:stop() end)
+            end
+            currentWeapon:setType(weaponTypes[currentWeaponIndex], 100)
+            
             gameManager:setState("idle")
         end
     end
