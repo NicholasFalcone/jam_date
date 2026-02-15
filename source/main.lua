@@ -9,6 +9,7 @@ import "CoreLibs/crank"
 import "Core/UI"
 import "Core/Input"
 import "Core/GameManager"
+import "Core/AudioManager"
 import "Game/Crossair"
 import "Game/Enemy"
 import "Game/Weapon"
@@ -18,6 +19,7 @@ local gfx = playdate.graphics
 
 local enemies = {}
 local gameManager = GameManager()
+local audioManager = AudioManager()
 
 local Crossair = Crossair()
 local Input = Input()

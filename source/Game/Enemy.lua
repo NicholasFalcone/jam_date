@@ -2,6 +2,8 @@ class('Enemy').extends()
 
 local gfx = playdate.graphics
 
+local audioManager = AudioManager()
+
 function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.angle = _angle or math.random(-15, 15)
     self.distance = 1.0
@@ -12,6 +14,9 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.health = _health  -- Richiede 3 colpi per morire
     self.speed = _speed or 0.005
     self.spawnIndex = _spawnIndex
+    self.SFX_Death = audioManager:loadSample("SFX_EnemyDeath.mp3")
+    self.SFX_Hit = audioManager:loadSample("SFX_EnemyHit.mp3")
+    self.SFX_EnemyReachesPlayer = audioManager:loadSample("SFX_EnemyReachesPlayer.mp3")
 end
 
 
@@ -26,6 +31,9 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     if not self.isDead then
         self.distance -= 0.005
         if self.distance <= 0 then
+            if(self.SFX_EnemyReachesPlayer) then
+                pcall(function() self.SFX_EnemyReachesPlayer:play(1) end)
+            end
             -- reached player, trigger game over
             if gameManager then
                 gameManager:takeDamage(100)
@@ -74,10 +82,16 @@ function Enemy:hit(dmg)
         self.isHitted = true
         self.hitTimer = 3  -- Mostra l'effetto per 10 frame (~0.16 sec)
         self.health -= dmg
+        if self.SFX_Hit then
+            pcall(function() self.SFX_Hit:play(1) end)
+        end
         print("Enemy HIT! Health remaining: " .. self.health)
         if self.health <= 0 then
             self.isDead = true
             self.deathTimer = 10
+            if self.SFX_Death then
+                pcall(function() self.SFX_Death:play(1) end)
+            end
             print("Enemy DIED")
         end
     end

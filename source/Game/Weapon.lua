@@ -1,16 +1,7 @@
 class('Weapon').extends()
 
 local gfx = playdate.graphics
-
--- Helper function to load sound samples safely
-local function tryLoadSample(p)
-	local ok, sp = pcall(function() return playdate.sound.sampleplayer.new(p) end)
-	if ok then return sp end
-	-- try with .wav suffix too
-	ok, sp = pcall(function() return playdate.sound.sampleplayer.new(p..".wav") end)
-	if ok then return sp end
-	return nil
-end
+local audioManager = AudioManager()
 
 -- Base weapon class; specific weapons override parameters
 function Weapon:init(typeName, ammo)
@@ -45,7 +36,7 @@ function Weapon:initByType(t, ammo)
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()
 		self.lastShotTime = playdate.getElapsedTime()
-		self.Minigun_sfxShot = tryLoadSample("sounds/minigun_shot")
+		self.Minigun_sfxShot = audioManager:loadSample("sounds/minigun_shot")
 	elseif t == "Revolver" then
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -59,8 +50,8 @@ function Weapon:initByType(t, ammo)
 		self.Revolver_pendingFire = false -- request to show a single-frame firing state
 		self.Revolver_fireTicks = 0 -- number of update ticks to keep `firing` state visible
 
-		self.Revolver_sfxClick = tryLoadSample("sounds/revolver_click")
-		self.Revolver_sfxShot = tryLoadSample("sounds/revolver_shot")
+		self.Revolver_sfxClick = audioManager:loadSample("sounds/revolver_click")
+		self.Revolver_sfxShot = audioManager:loadSample("sounds/revolver_shot")
 	elseif t == "Shotgun" then
 		self.maxWindUp = 0
 		self.maxCooldown = 45
@@ -71,7 +62,7 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
 		self.Shotgun_lastDir = 0 -- last crank direction seen
 		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
-		self.Shotgun_sfxShot = tryLoadSample("sounds/shotgun_shot")
+		self.Shotgun_sfxShot = audioManager:loadSample("sounds/shotgun_shot")
 	else
 		self.maxWindUp = 0
 		self.maxCooldown = 30

@@ -1,6 +1,7 @@
 class('GameManager').extends()
 
 import "Game/Dice"
+import "Core/AudioManager"
 
 -- Game states
 local GAME_STATE = {
@@ -10,6 +11,8 @@ local GAME_STATE = {
 	GAME_OVER = "gameOver",  -- Player defeated
 	PAUSED = "paused"        -- Game paused
 }
+
+local audioManager = AudioManager()
 
 function GameManager:init()
 	self.currentState = GAME_STATE.IDLE
@@ -77,6 +80,8 @@ function GameManager:isRolling()
 	return self.currentState == GAME_STATE.ROLLING
 end
 
+local music = nil
+
 -- State callbacks
 function GameManager:onIdleEnter()
 	-- Reset game variables for new run
@@ -85,12 +90,28 @@ function GameManager:onIdleEnter()
 	self.timeAlive = 0
 	self.enemiesDefeated = 0
 	self.playerHealth = self.maxPlayerHealth
+	print("Running state entered.")
+	if music then music:stop() end -- Stop menu music
+	music = audioManager:loadSample("sounds/Music_Menu.mp3") -- Example of loading a sound sample for the idle state
+	if music then 
+		music:play(0) 
+	else 
+		print("Failed to load menu music")
+	end -- Loop indefinitely
 end
 
 function GameManager:onRunningEnter()
 	-- Game started
 	self.timeAlive = 0
 	self.waveCount = 1
+	print("Running state entered.")
+	if music then music:stop() end -- Stop menu music
+	music = audioManager:loadSample("sounds/Music_Mame.mp3") -- Example of loading a sound sample for the idle state
+	if music then 
+		music:play(0) 
+	else
+		print("Failed to load game music")
+	end -- Loop indefinitely
 end
 
 function GameManager:onRollingEnter()
