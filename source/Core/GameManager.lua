@@ -34,6 +34,8 @@ function GameManager:init()
 	-- main.lua can keep its own UI instance for in-game HUD.
 	self.ui = UI()
 	self.ui:setScreen("menu")
+    self.SFX_EnemyReachesPlayer = audioManager:loadSample("sounds/SFX_EnemyReachesPlayer")
+    self.SFX_RollingDice = audioManager:loadSample("sounds/SFX_DiceRoll")
 end
 
 function GameManager:update(deltaTime)
@@ -146,12 +148,19 @@ function GameManager:onRollingEnter()
 		table.insert(self.ammoDice, dice)
 	end
 	
+	if self.SFX_RollingDice then
+		pcall(function() self.SFX_RollingDice:play(1) end)
+	end
 	-- Calculate results
 	self:calculateRollingResults()
 end
 
 function GameManager:onGameOverEnter()
 	-- Player died - game over
+	if music then music:stop() end -- Stop game music
+	if(self.SFX_EnemyReachesPlayer) then
+		pcall(function() self.SFX_EnemyReachesPlayer:play(1) end)
+	end
 end
 
 function GameManager:onPausedEnter()
@@ -180,6 +189,8 @@ function GameManager:calculateRollingResults()
         end
     end
 end
+
+
 
 -- Score management
 function GameManager:addScore(points)
