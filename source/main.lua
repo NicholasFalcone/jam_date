@@ -76,10 +76,40 @@ local spawnPoints = computeSpawnPoints()
 local weaponTypes = {"Minigun", "Revolver", "Shotgun"}
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex])
+currentWeapon.weaponState = currentWeapon.weaponState or "idle"
+
 
 local UI = UI()
 
+local gameState = "menu"   -- "menu" | "howto" | "credits" | "prestart" | "game"
+UI:setScreen("menu")
+
+-- GameManager already starts in IDLE, but make it explicit
+gameManager:setState("idle")
+
+-- Store defaults so restarting is clean
+local defaultSpawnN = spawnN
+local defaultSpawnT = spawnT
+
+local function resetGameplay()
+    enemies = {}
+
+    local now = playdate.getElapsedTime()
+    lastSpawnTime = now
+    lastNScaleTime = now
+    lastTScaleTime = now
+
+    spawnN = defaultSpawnN
+    spawnT = defaultSpawnT
+end
+
+
+
 local playerRotation = 0
+local lastCrankPos = playdate.getCrankPosition()
+local crankFireAccum = 0
+local crankFireStep = 6
+
 
 function Init()
     local menu = playdate.getSystemMenu()
@@ -212,88 +242,150 @@ function DoAim()
 end
 
 function playdate.update()
-    -- update game state
-    -- handle input: crank
-    local change = Input:getCrankChange()
-    if currentWeapon and currentWeapon.onCrankChange then
-        currentWeapon:onCrankChange(change)
-    end
+    playdate.timer.updateTimers()
 
-    -- update weapon internals (accel/decay and firing timing)
-    local now = playdate.getElapsedTime()
+    local action = UI:update()
 
-
-    if gameManager:isRunning() then
-        if currentWeapon and currentWeapon.update then
-            currentWeapon:update(now)
-        end
-
-        -- weapon switch (button B)
-        if playdate.buttonJustPressed(playdate.kButtonB) then
-            currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
-            local newType = weaponTypes[currentWeaponIndex]
-            if currentWeapon and currentWeapon.setType then
-                print("Change weapon to " .. newType)
-                currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
-            else
-                print ("Switching weapon to " .. newType)
-                currentWeapon = Weapon.new(newType)
-            end
-        end
-        --- testing dice roll with button A
-        if playdate.buttonJustPressed(playdate.kButtonA) then
-            gameManager:setState("rolling")
-            gameManager:drawStateScreen(gfx)
-            return
-        end
-    end
-
-    -- Handle state transitions via crank button
-    if playdate.buttonJustPressed(playdate.kButtonA) then
-        if gameManager:isIdle() then
-            -- Reset game state and enemy list before starting
-            enemies = {}
-            -- Reset spawn manager variables
-            lastSpawnTime = playdate.getElapsedTime()
-            lastNScaleTime = playdate.getElapsedTime()
-            lastTScaleTime = playdate.getElapsedTime()
-            spawnN = 1  -- Reset to 1 enemy per spawn
-            spawnT = 10.0  -- Reset spawn interval
-            needsWeaponRoll = false
-            gameManager:setState("running")
-        elseif gameManager:isRolling() then
-            -- Apply rolling results and return to running state
-            local newWeapon = gameManager.rolledWeapon
-            local newAmmo = gameManager.rolledAmmo
-            
-            if newWeapon and currentWeapon.setType then
-                currentWeapon:setType(newWeapon, newAmmo)
-            end
-            
-            needsWeaponRoll = false
-            gameManager:setState("running")
-        elseif gameManager:isGameOver() then
+    -- MAIN MENU
+    if gameState == "menu" then
+        if action == "play" then
+            -- Load the same "command/controls" screen as before (GameManager IDLE)
+            gameState = "game"
+            UI:setScreen("hidden")
             gameManager:setState("idle")
+
+        elseif action == "howto" then
+            gameState = "howto"
+            UI:setScreen("howto")
+
+        elseif action == "credits" then
+            gameState = "credits"
+            UI:setScreen("credits")
         end
+
+        gfx.clear()
+        UI:draw()
+        return
     end
 
-    gfx.clear()
+    -- HOWTO / CREDITS
+    if gameState == "howto" or gameState == "credits" then
+        if action == "back" then
+            gameState = "menu"
+            UI:setScreen("menu")
+        end
 
-    -- Draw state-specific screens
-    if gameManager:isIdle() or gameManager:isRolling() or gameManager:isGameOver() then
-        gameManager:drawStateScreen(gfx)
+        gfx.clear()
+        UI:draw()
+        return
+    end
+
+    -- GAME (this is your original working loop, put back inside update)
+    if gameState == "game" then
+        -- update weapon internals (accel/decay and firing timing)
+        local now = playdate.getElapsedTime()
+
+        if gameManager:isRunning() then
+            if currentWeapon and currentWeapon.update then
+                currentWeapon:update(now)
+            end
+                -- CRANK = SHOOT (restore firing state without consuming getCrankChange)
+    local pos = playdate.getCrankPosition()
+    local delta = pos - lastCrankPos
+    if delta > 180 then delta = delta - 360 end
+    if delta < -180 then delta = delta + 360 end
+    lastCrankPos = pos
+
+    crankFireAccum = crankFireAccum + delta
+
+    local firedThisFrame = false
+    while crankFireAccum >= crankFireStep do
+        crankFireAccum = crankFireAccum - crankFireStep
+        firedThisFrame = true
+    end
+    while crankFireAccum <= -crankFireStep do
+        crankFireAccum = crankFireAccum + crankFireStep
+        firedThisFrame = true
+    end
+
+    if firedThisFrame then
+        updateWeaponState("firing")
     else
-        -- Draw gameplay UI
-        UI:draw(currentWeapon)
-        Input.IsMovingForward()
-        updateEnemies()
-        DoAim()
-        gameManager:update(0.016) -- ~60 FPS
-        -- draw enemies
-        drawEnemies()
-        if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
-        Crossair:draw()
-        playdate.ui.crankIndicator:draw(1,1)
+        updateWeaponState("idle")
+    end
+
+
+            -- weapon switch (button B)
+            if playdate.buttonJustPressed(playdate.kButtonB) then
+                currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
+                local newType = weaponTypes[currentWeaponIndex]
+                if currentWeapon and currentWeapon.setType then
+                    print("Change weapon to " .. newType)
+                    currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
+                else
+                    print ("Switching weapon to " .. newType)
+                    currentWeapon = Weapon.new(newType)
+                end
+            end
+
+            --- testing dice roll with button A
+            if playdate.buttonJustPressed(playdate.kButtonA) then
+                gameManager:setState("rolling")
+                gameManager:drawStateScreen(gfx)
+                return
+            end
+        end
+
+        -- Handle state transitions via crank button
+        if playdate.buttonJustPressed(playdate.kButtonA) then
+            if gameManager:isIdle() then
+                -- Reset game state and enemy list before starting
+                enemies = {}
+                -- Reset spawn manager variables
+                lastSpawnTime = playdate.getElapsedTime()
+                lastNScaleTime = playdate.getElapsedTime()
+                lastTScaleTime = playdate.getElapsedTime()
+                spawnN = 1  -- Reset to 1 enemy per spawn
+                spawnT = 10.0  -- Reset spawn interval
+                needsWeaponRoll = false
+                gameManager:setState("running")
+            elseif gameManager:isRolling() then
+                -- Apply rolling results and return to running state
+                local newWeapon = gameManager.rolledWeapon
+                local newAmmo = gameManager.rolledAmmo
+
+                if newWeapon and currentWeapon.setType then
+                    currentWeapon:setType(newWeapon, newAmmo)
+                end
+
+                needsWeaponRoll = false
+                gameManager:setState("running")
+            elseif gameManager:isGameOver() then
+                gameManager:setState("idle")
+            end
+        end
+
+        gfx.clear()
+
+        -- Draw state-specific screens
+        if gameManager:isIdle() or gameManager:isRolling() or gameManager:isGameOver() then
+            gameManager:drawStateScreen(gfx)
+        else
+            -- Draw gameplay UI (your menu UI is hidden, so it won't interfere)
+            UI:draw(currentWeapon)
+            Input.IsMovingForward()
+            updateEnemies()
+            DoAim()
+            gameManager:update(0.016) -- ~60 FPS
+
+            -- draw enemies
+            drawEnemies()
+            if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
+            Crossair:draw()
+            playdate.ui.crankIndicator:draw(1,1)
+        end
+
+                return
     end
 end
 
