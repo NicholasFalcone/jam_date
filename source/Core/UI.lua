@@ -10,12 +10,13 @@ function UI:init()
     self.menuOptions = { "Play", "How to play", "Credits" }
     self.menuIndex = 1
 
-    -- How-to pages (order required)
+    -- How-to pages (order required) - now using full-page images
     self.howtoPages = {
-        { key="basics",  title="Basics",   text="Shoot the enemies and\nsurvive as long as you\ncan.\n\nUse the arrows to aim\nand the crank to shoot.\n\nWhen you are out of\nammo, shake the\nplaydate to roll the dice\nand gain a new,\nreloaded weapon!" },
-        { key="revolver", title="Revolver", text="Spin backward\nuntil you hear the\n\"Click\", then\nforward until you\nshoot." },
-        { key="minigun",  title="Minigun",  text="Spin forward fast\nenough to shoot.\nShooting without\nstopping increase\nrate of fire." },
-        { key="shotgun",  title="Shotgun",  text="Spin a full circle to\nshoot. Wait the\nrecharge sound to\nshoot again." }
+        { key="basics1" },
+        { key="basics2" },
+        { key="revolver" },
+        { key="minigun" },
+        { key="shotgun" }
     }
     self.howtoIndex = 1
 
@@ -24,15 +25,18 @@ function UI:init()
     self.crankStepDegMenu = 18
     self.crankStepDegHowto = 25
 
-    -- How-to placeholder images (safe if missing)
-    -- Put these in: source/images/howto/
-    -- names (NO extension in code):
-    -- basics_main.png, revolver_gun.png, minigun_gun.png, shotgun_gun.png, playdate_icon.png
-    self.imgBasicsMain  = self:loadImage("images/howto/basics_main")
+    -- How-to full page images (put in: source/images/howto/)
+    -- These are complete page images with all text and graphics included
+    self.imgBasics1Page  = self:loadImage("images/howto/BASICS_1-dithered")
+    self.imgBasics2Page  = self:loadImage("images/howto/BASICS2_1-dithered")
+    self.imgRevolverPage = self:loadImage("images/howto/REVOLVER_1-dithered")
+    self.imgMinigunPage  = self:loadImage("images/howto/MINIGUN_1-dithered")
+    self.imgShotgunPage  = self:loadImage("images/howto/SHOTGUN_1-dithered")
+
+    -- Keep weapon icons for HUD (different from how-to pages now)
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
     self.imgMinigunGun  = self:loadImage("images/howto/minigun_gun")
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
-    self.imgPlaydate    = self:loadImage("images/howto/playdate_icon")
 
     -- HUD bullet sprites (safe if missing)
     -- Put these in: source/images/ui/
@@ -408,73 +412,41 @@ function UI:draw(currentWeapon)
     if self.screen == "howto" then
         local showUp = (self.howtoIndex > 1)
         local showDown = (self.howtoIndex < #self.howtoPages)
-        drawHowtoFrame(showUp, showDown)
-
+        
+        -- White background
+        gfx.setColor(gfx.kColorWhite)
+        gfx.fillRect(0, 0, 400, 240)
+        gfx.setColor(gfx.kColorBlack)
+        
+        -- Draw the appropriate full-page image based on current index
         local page = self.howtoPages[self.howtoIndex]
-        drawCenteredText(page.title, 20)
-
-        -- Layout
-        local leftX, leftY, leftW, leftH = 30, 60, 170, 130
-
-        -- BODY TEXT moved left and constrained so it won't touch the right border line
-        local textX, textY = 200, 60
-        local textW, textH = 170, 150
-
-        if page.key == "basics" then
-            if self.imgBasicsMain then
-                self.imgBasicsMain:draw(leftX, leftY)
-            else
-                drawPlaceholderBox(leftX, leftY, leftW, leftH, "BASICS IMG")
-            end
-
-            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
-
+        local pageImg = nil
+        
+        if page.key == "basics1" then
+            pageImg = self.imgBasics1Page
+        elseif page.key == "basics2" then
+            pageImg = self.imgBasics2Page
         elseif page.key == "revolver" then
-            if self.imgRevolverGun then
-                self.imgRevolverGun:draw(leftX, leftY)
-            else
-                drawPlaceholderBox(leftX, leftY, leftW, leftH, "REVOLVER IMG")
-            end
-
-            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
-
-            if self.imgPlaydate then
-                self.imgPlaydate:draw(300, 150)
-            else
-                drawPlaceholderBox(300, 150, 70, 60, "PD")
-            end
-
+            pageImg = self.imgRevolverPage
         elseif page.key == "minigun" then
-            if self.imgMinigunGun then
-                self.imgMinigunGun:draw(leftX, leftY)
-            else
-                drawPlaceholderBox(leftX, leftY, leftW, leftH, "MINIGUN IMG")
-            end
-
-            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
-
-            if self.imgPlaydate then
-                self.imgPlaydate:draw(300, 150)
-            else
-                drawPlaceholderBox(300, 150, 70, 60, "PD")
-            end
-
+            pageImg = self.imgMinigunPage
         elseif page.key == "shotgun" then
-            if self.imgShotgunGun then
-                self.imgShotgunGun:draw(leftX, leftY)
-            else
-                drawPlaceholderBox(leftX, leftY, leftW, leftH, "SHOTGUN IMG")
-            end
-
-            gfx.drawTextInRect(page.text, textX, textY, textW, textH)
-
-            if self.imgPlaydate then
-                self.imgPlaydate:draw(300, 150)
-            else
-                drawPlaceholderBox(300, 150, 70, 60, "PD")
-            end
+            pageImg = self.imgShotgunPage
         end
-
+        
+        -- Draw the full-page image (it includes all text, graphics, borders, etc.)
+        if pageImg then
+            pageImg:draw(0, 0)
+        end
+        
+        -- Draw navigation arrows on top (black)
+        if showUp then
+            gfx.fillTriangle(200, 6, 192, 18, 208, 18)
+        end
+        if showDown then
+            gfx.fillTriangle(200, 234, 192, 222, 208, 222)
+        end
+        
         drawBackBottomRight()
         return
     end
