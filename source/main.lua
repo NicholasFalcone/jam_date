@@ -38,6 +38,10 @@ local N_ScaleValue = 1 -- increase value for N
 local T_ScaleTime = 10 -- every X seconds modify T
 local T_ScaleValue = -0.5 -- change in seconds to add to T each interval (can be negative)
 
+--- ROAD
+local roadScrollOffset = 0
+local roadSpeed = 1.0
+
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
 local lastNScaleTime = playdate.getElapsedTime()
@@ -304,8 +308,10 @@ function playdate.update()
     if gameManager:isIdle() or gameManager:isRolling() or gameManager:isGameOver() then
         gameManager:drawStateScreen(gfx)
     else
+        roadScrollOffset = (roadScrollOffset - roadSpeed) % 100
         -- Draw gameplay UI
         drawDesert()
+        drawRoad()
         UI:draw(currentWeapon)
         Input.IsMovingForward()
         updateEnemies()
@@ -331,6 +337,29 @@ function drawDesert()
         gfx.fillRect(0, 120, screenWidth, 120)
     end
 end
+
+
+function drawRoad()
+    local centerX = 200
+    local horizonY = 112
+    local groundY = 240
+    -- gfx.setColor(gfx.kColorWhite)
+    local topW = 30
+    local botW = 300
+    -- gfx.fillPolygon(centerX - topW, horizonY, centerX + topW, horizonY, centerX + botW, groundY, centerX - botW, groundY)
+    
+    -- Disegna linee stradali e cactus integrati
+    gfx.setColor(gfx.kColorBlack)
+    for i = 0, 300 do
+        local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
+        local y = horizonY + (lineZ * lineZ) * (groundY - horizonY)
+        local w = topW + (lineZ * lineZ) * (botW - topW)
+        
+        -- Disegna linea stradale
+        gfx.drawLine(centerX - w, y, centerX + w, y)
+    end
+end
+
 
 
 function drawEnemies()
