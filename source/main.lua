@@ -282,7 +282,7 @@ function playdate.update()
         drawEnemies()
         if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
         Crossair:draw()
-        playdate.ui.crankIndicator:draw(1,1)
+        --playdate.ui.crankIndicator:draw(1,1)
     end
 end
 
