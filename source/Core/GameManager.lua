@@ -51,7 +51,13 @@ function GameManager:init()
 
 	-- Phase for rolling
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
-	self.shakeThreshold = 1.5 -- Sensitivity threshold for movement
+	self.shakeThreshold = 1 -- Sensitivity threshold for movement
+	self.shakeDeltaThreshold = 0.9 -- Sensitivity for shake (delta accel)
+	self.shakeCooldown = 0.35 -- seconds between shake triggers
+	self.lastShakeTime = 0
+	self.prevAccelX = 0
+	self.prevAccelY = 0
+	self.prevAccelZ = 0
 	self.rolledThisFrame = false
 end
 
@@ -61,12 +67,18 @@ function GameManager:update(deltaTime)
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
 	elseif self.currentState == GAME_STATE.ROLLING then
 		if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
-			-- Use playdate.accelerometer if it exists, otherwise use fallback button
-			if playdate.accelerometer then
-				local x, y, z = playdate.accelerometer.getAcceleration()
-				-- Detect significant movement (swing/shake)
-				local magnitude = math.sqrt(x*x + y*y + z*z)
-				if magnitude > self.shakeThreshold then
+			-- Use accelerometer if it exists, otherwise use fallback button
+			if playdate.readAccelerometer then
+				local x, y, z = playdate.readAccelerometer()
+				-- Detect shake by looking at sudden changes (swing-like impulse)
+				local dx = x - (self.prevAccelX or 0)
+				local dy = y - (self.prevAccelY or 0)
+				local dz = z - (self.prevAccelZ or 0)
+				self.prevAccelX, self.prevAccelY, self.prevAccelZ = x, y, z
+				local deltaMag = math.sqrt(dx*dx + dy*dy + dz*dz)
+				local now = playdate.getElapsedTime()
+				if deltaMag > (self.shakeDeltaThreshold or self.shakeThreshold) and (now - (self.lastShakeTime or 0)) >= (self.shakeCooldown or 0) then
+					self.lastShakeTime = now
 					self:triggerDiceRoll()
 				end
 			else
@@ -157,12 +169,13 @@ function GameManager:onRollingEnter()
 	print("Rolling state entered - Waiting for swing...")
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
 	
-	if playdate.accelerometer then
-		playdate.accelerometer.start()
-	else
-		-- Fallback to top-level function if the table is missing
+	if playdate.startAccelerometer then
 		pcall(function() playdate.startAccelerometer() end)
-		print("Warning: playdate.accelerometer table is nil. Using Button A as fallback.")
+	end
+	if playdate.readAccelerometer then
+		local x, y, z = playdate.readAccelerometer()
+		self.prevAccelX, self.prevAccelY, self.prevAccelZ = x or 0, y or 0, z or 0
+		self.lastShakeTime = playdate.getElapsedTime()
 	end
 	
 	-- Note: Dice are NOT rolled yet
@@ -355,7 +368,7 @@ function GameManager:drawRollingScreen(g)
 	
 	if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
 		local prompt = "SWING THE CONSOLE TO ROLL!"
-		if not playdate.accelerometer then
+		if not playdate.readAccelerometer then
 			prompt = "PRESS A TO ROLL!"
 		end
 		g.drawTextAligned(prompt, 200, 100, kTextAlignment.center)
