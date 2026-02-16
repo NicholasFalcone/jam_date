@@ -23,6 +23,14 @@ local enemies = {}
 local gameManager = GameManager()
 local audioManager = AudioManager()
 
+gameManager:setOnDiceRollCallback(function()
+    for _, e in ipairs(enemies) do
+        if e and not e.isDead and e.distance and e.distance <= 0.1 then
+            e:applyHit(9999)
+        end
+    end
+end)
+
 -- Camera shake variables
 local cameraShakeX = 0
 local cameraShakeY = 0

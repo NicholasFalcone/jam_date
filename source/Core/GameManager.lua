@@ -78,6 +78,11 @@ function GameManager:init()
 	self.rollingAnimFrames = self:loadRollingAnimFrames()
 	self.rollingAnimTicks = 0  -- Counter for animation (30 ticks = 0.5 seconds @ 60fps)
 	self.rollingAnimFrameIndex = 1
+	self.onDiceRoll = nil
+end
+
+function GameManager:setOnDiceRollCallback(callback)
+	self.onDiceRoll = callback
 end
 
 function GameManager:update(deltaTime)
@@ -252,6 +257,10 @@ function GameManager:triggerDiceRoll()
 	
 	-- Calculate results (ready to display after animation)
 	self:calculateRollingResults()
+
+	if self.onDiceRoll then
+		pcall(function() self.onDiceRoll() end)
+	end
 end
 
 function GameManager:onGameOverEnter()
