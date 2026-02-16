@@ -115,7 +115,7 @@ function Enemy:applyHit(dmg)
         if self.SFX_Hit then
             pcall(function() self.SFX_Hit:play(1) end)
         end
-        print("Enemy HIT! Health remaining: " .. self.health)
+		
         if self.health <= 0 then
             self.isDead = true
             
@@ -126,7 +126,7 @@ function Enemy:applyHit(dmg)
             if self.SFX_Death then
                 pcall(function() self.SFX_Death:play(1) end)
             end
-            print("Enemy DIED")
+			
         end
         return true
     end
