@@ -17,6 +17,7 @@ local GAME_STATE = {
 
 local ROLLING_PHASE = {
 	WAITING_FOR_SWING = "waitingForSwing",
+	PLAYING_ANIMATION = "playingAnimation",
 	RESULTS = "results"
 }
 
@@ -65,6 +66,11 @@ function GameManager:init()
 	self.prevAccelY = 0
 	self.prevAccelZ = 0
 	self.rolledThisFrame = false
+	
+	-- Rolling animation variables
+	self.rollingAnimFrames = self:loadRollingAnimFrames()
+	self.rollingAnimTicks = 0  -- Counter for animation (30 ticks = 0.5 seconds @ 60fps)
+	self.rollingAnimFrameIndex = 1
 end
 
 function GameManager:update(deltaTime)
@@ -96,6 +102,23 @@ function GameManager:update(deltaTime)
 				if playdate.buttonJustPressed(playdate.kButtonA) then
 					self:triggerDiceRoll()
 				end
+			end
+		elseif self.rollingPhase == ROLLING_PHASE.PLAYING_ANIMATION then
+			-- Handle animation tick countdown
+			if self.rollingAnimTicks > 0 then
+				-- Calculate which frame to show (11 frames over 30 ticks = ~2.7 ticks per frame)
+				local totalTicks = 18
+				local totalFrames = 11
+				local ticksPerFrame = totalTicks / totalFrames  -- ~2.7 ticks per frame
+				
+				-- Calculate current frame: goes from 1 to 11 as ticks count down from 30 to 0
+				local currentFrame = math.floor((totalTicks - self.rollingAnimTicks) / ticksPerFrame) + 1
+				self.rollingAnimFrameIndex = math.max(1, math.min(totalFrames, currentFrame))
+				
+				self.rollingAnimTicks = self.rollingAnimTicks - 1
+			else
+				-- Animation complete, show results
+				self.rollingPhase = ROLLING_PHASE.RESULTS
 			end
 		end
 	end
@@ -201,9 +224,13 @@ function GameManager:onRollingEnter()
 end
 
 function GameManager:triggerDiceRoll()
-	self.rollingPhase = ROLLING_PHASE.RESULTS
+	-- Start animation phase
+	self.rollingPhase = ROLLING_PHASE.PLAYING_ANIMATION
+	self.rollingAnimTicks = 18
+	self.rollingAnimFrameIndex = 1
 	self.rolledThisFrame = true
 	
+	-- Roll the dice immediately (results calculated but not shown until animation ends)
 	if self.weaponDice then
 		self.weaponDice:roll()
 	end
@@ -216,7 +243,7 @@ function GameManager:triggerDiceRoll()
 		pcall(function() self.SFX_RollingDice:play(1) end)
 	end
 	
-	-- Calculate results
+	-- Calculate results (ready to display after animation)
 	self:calculateRollingResults()
 end
 
@@ -444,8 +471,27 @@ function GameManager:drawRollingScreen(g)
 		-- Reset offset immediately after drawing the shaking elements
 		g.setDrawOffset(0, 0)
 		return
+	elseif self.rollingPhase == ROLLING_PHASE.PLAYING_ANIMATION then
+		-- Display rolling animation
+		if self.rollingAnimFrames and #self.rollingAnimFrames > 0 then
+			local frameIndex = math.max(1, math.min(#self.rollingAnimFrames, self.rollingAnimFrameIndex))
+			local frame = self.rollingAnimFrames[frameIndex]
+			if frame then
+				-- Draw centered on screen
+				local imgW, imgH = frame:getSize()
+				local x = math.floor((400 - imgW) / 2)
+				local y = math.floor((240 - imgH) / 2)
+				frame:draw(x, y)
+			end
+		else
+			-- Fallback if animation frames not loaded
+			g.setColor(g.kColorBlack)
+			g.drawTextAligned("ROLLING...", 200, 120, kTextAlignment.center)
+		end
+		return
 	end
 
+	-- RESULTS phase - show dice and results
 	g.setColor(g.kColorBlack)
 	-- g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
 
@@ -477,6 +523,23 @@ end
 
 function GameManager.getStateConstants()
 	return GAME_STATE
+end
+
+-- Load the 11 rolling animation frames
+-- Put your animation frames in: source/images/rolling_anim/
+-- Name them: frame_1.png, frame_2.png, ... frame_11.png
+function GameManager:loadRollingAnimFrames()
+	local frames = {}
+	local basePath = "images/rolling_anim/frame_"
+	for i = 1, 11 do
+		local img = gfx.image.new(basePath .. tostring(i))
+		if img then
+			table.insert(frames, img)
+		else
+			print("Warning: Could not load rolling animation frame: " .. basePath .. tostring(i))
+		end
+	end
+	return frames
 end
 
 return GAME_STATE
