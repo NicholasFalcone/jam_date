@@ -94,7 +94,6 @@ function GameManager:update(deltaTime)
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
 		if self.mainMusic then
 			local nextRate = 1 + (self.timeAlive * 0.0083) -- Gradually increase pitch over time (max 2x at 2 minutes)
-			print("Setting music rate to: " .. tostring(nextRate))
 			self.mainMusic:setRate(nextRate) -- Gradually increase pitch over time (max 2x at 2 minutes)
 		end
 	end
