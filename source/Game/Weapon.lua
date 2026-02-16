@@ -83,7 +83,7 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_AmmoCost = 2 -- ammo consumed per shot
 		self.Shotgun_fireTicks = 0
 		self.Shotgun_sfxShot = audioManager:loadSample("sounds/shotgun_shot")
-		self.Shotgun_sfxPump = audioManager:loadSample("sounds/revolver_click") -- Placeholder for pump SFX
+		self.Shotgun_sfxReload = audioManager:loadSample("sounds/SFX_ShotgunReload")
 		-- Set crosshair hit radius for area damage
 		if self.crosshair then
 			self.crosshair.hitRadius = 25  -- Shotgun: area of effect damage
@@ -198,8 +198,12 @@ function Weapon:updateShotgun()
 
 		self.Shotgun_fireTicks = self.Shotgun_fireTicks - 1
 	elseif self.weaponState == "firing" then
-		-- Firing animation finished: return to idle (single frame)
-		self:setState("idle")
+		-- Firing animation finished: transition to reloading if cooldown is active
+		if self:isOnCooldown() then
+			self:setState("reloading")
+		else
+			self:setState("idle")
+		end
 	end
 
 	-- Update cooldown timer
@@ -303,21 +307,14 @@ function Weapon:onCrankChangeRevolverFire(dir, absc)
 end
 
 function Weapon:onCrankChangeShotgun(change)
-	-- Crank stopped: if we recently fired, start reload now
+	-- Crank stopped or moving backwards: reset accumulator
 	if not change or change <= 0 then 
 		self.Shotgun_accum = 0
-
-		if self.Shotgun_pendingReload then
-			-- start reload only when user stops moving the crank
-			self:startCooldown()
-			self.Shotgun_pendingReload = false
-			self:setState("reloading")
-		else
-			if self.weaponState ~= "firing" then
-				-- remain in reloading if cooldown active, otherwise go idle
-				if not (self.cooldownTime and self.cooldownTime > 0) then
-					self:setState("idle")
-				end
+		
+		-- Keep current state (reloading or idle)
+		if self.weaponState ~= "firing" then
+			if not (self.cooldownTime and self.cooldownTime > 0) then
+				self:setState("idle")
 			end
 		end
 		return 
@@ -330,10 +327,6 @@ function Weapon:onCrankChangeShotgun(change)
 	if self.cooldownTime and self.cooldownTime > 0 then
 		return
 	end
-	-- If we've already fired and are waiting for the crank to stop, ignore further crank input
-	if self.Shotgun_pendingReload then
-		return
-	end
 
 	-- Accumulate crank motion and show winding state
 	self.Shotgun_accum = (self.Shotgun_accum or 0) + change
@@ -344,10 +337,13 @@ function Weapon:onCrankChangeShotgun(change)
 		self:fire(2)
 		local shootFrames = self.Shotgun_shootFrames
 		local totalNumFrames = (shootFrames and #shootFrames) or 3
-		self.Shotgun_fireTicks = totalNumFrames * 2 -- Start with duration stretching
+		self.Shotgun_fireTicks = totalNumFrames * 2
 		self.Shotgun_fireFrameIndex = 1
-		-- DO NOT start cooldown now; wait until crank movement ends
-		self.Shotgun_pendingReload = true
+		-- Start cooldown immediately (reload animation will play after firing animation)
+		self:startCooldown()
+		if self.Shotgun_sfxReload then
+			pcall(function() self.Shotgun_sfxReload:play(1) end)
+		end
 		self.Shotgun_accum = 0
 	end
 end
