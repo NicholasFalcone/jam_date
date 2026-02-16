@@ -37,7 +37,7 @@ function Weapon:initByType(t, ammo)
 		self.FireRate_DecelerationSpeed = 0.5 -- every X seconds when stopped, decelerate
 		self.FireRate_DecelerationValue = 0.1 -- increase time between shots by this
 		self.FireRate_Max = 0.1 -- cap: minimum time between shots (fastest)
-		self.Damage = 20
+		self.Damage = 25
 		self.isShooting = false
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()
@@ -79,7 +79,7 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_shootFrames = self:loadShotgunShootFrames()
 		self.Shotgun_idleFrameIndex = 1
 		-- Shotgun-specific parameters
-		self.Damage = 130
+		self.Damage = 100
 		self.Shotgun_ArcSize = 360 -- degrees required for a complete rotation to fire
 		self.Shotgun_accum = 0 -- accumulated degrees in current rotation
 		self.Shotgun_lastDir = 0 -- last crank direction seen
