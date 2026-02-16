@@ -38,6 +38,9 @@ function UI:init()
     local audioManager = AudioManager()
     self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
 
+    -- Load Backgrounds
+    self.imgMainMenuBG = self:loadImage("images/ui/MainMenuBG")
+
     -- How-to full page images (put in: source/images/howto/)
     -- These are complete page images with all text and graphics included
     self.imgBasics1Page  = self:loadImage("images/howto/BASICS_1-dithered")
@@ -401,13 +404,20 @@ function UI:draw(currentWeapon)
 
     -- MENU
     if self.screen == "menu" then
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, 400, 240)
+        
+        -- Draw the main menu background image if it exists, otherwise fallback to white
+        if self.imgMainMenuBG then
+            self.imgMainMenuBG:draw(0, 0)
+        else
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(0, 0, 400, 240)
+        end
+        
+        -- Ensure text draws in black over the background
         gfx.setColor(gfx.kColorBlack)
 
-        -- Removed MAIN MENU text
-
-        local startY = 130 -- Moved lower
+        -- Draw options list
+        local startY = 130 -- Lowered position for menu items
         local lineH = 22
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "
