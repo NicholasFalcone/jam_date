@@ -15,6 +15,8 @@ function Weapon:init(typeName, ammo, crosshair)
 	self.Ammo = ammo
 	self.autoFire = false
 	self.crosshair = crosshair
+	self.shakeIntensity = 0  -- Camera shake intensity
+	self.shakeDecay = 0.8    -- How quickly shake decays
 	self:initByType(self.weaponType)
 end
 
@@ -102,6 +104,15 @@ end
 
 function Weapon:update(now)
 	now = now or playdate.getElapsedTime()
+	
+	-- Decay camera shake over time
+	if self.shakeIntensity and self.shakeIntensity > 0 then
+		self.shakeIntensity = self.shakeIntensity * (self.shakeDecay or 0.8)
+		if self.shakeIntensity < 0.1 then
+			self.shakeIntensity = 0
+		end
+	end
+	
 	if self.weaponType == "Minigun" then
 		self:updateMinigun(now)
 	elseif self.weaponType == "Revolver" then
@@ -120,6 +131,9 @@ function Weapon:updateMinigun(now)
 			pcall(function() self.Minigun_sfxRotation:play(0) end) -- 0 = infinite loop
 			self.Minigun_rotationPlaying = true
 		end
+		
+		-- Add shake immediately when cranking, build up quickly to max
+		self.shakeIntensity = math.min(self.shakeIntensity + 0.15, 1.5)  -- Faster buildup, max at 1.5
 		
 		-- accelerate fire rate over time
 		if now - (self.lastAccelTime or 0) >= (self.FireRate_AccelerationSpeed or 1.0) then
@@ -461,6 +475,16 @@ function Weapon:fire(ammoConsumption)
 	
 	-- Play weapon sound if available
 	self:playFireSound()
+	
+	-- Trigger camera shake based on weapon type
+	if hadAmmo then
+		if self.weaponType == "Shotgun" then
+			self.shakeIntensity = 3.0  -- Strong shake for shotgun
+		elseif self.weaponType == "Revolver" then
+			self.shakeIntensity = 2.0  -- Medium shake for revolver
+		-- Minigun shake is handled in updateMinigun, not here
+		end
+	end
 	
 	-- Trigger firing state and visuals - ALWAYS, even with 0 ammo
 	self:triggerFire()

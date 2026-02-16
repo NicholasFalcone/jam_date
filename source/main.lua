@@ -23,6 +23,10 @@ local enemies = {}
 local gameManager = GameManager()
 local audioManager = AudioManager()
 
+-- Camera shake variables
+local cameraShakeX = 0
+local cameraShakeY = 0
+
 local Crossair = Crossair()
 local Input = Input()
 -- Spawn system parameters (configurable)
@@ -343,6 +347,18 @@ function playdate.update()
     if gameManager:isIdle() or gameManager:isRolling() or gameManager:isGameOver() then
         gameManager:drawStateScreen(gfx)
     else
+        -- Calculate camera shake offset from weapon (only during gameplay)
+        cameraShakeX = 0
+        cameraShakeY = 0
+        if currentWeapon and currentWeapon.shakeIntensity and currentWeapon.shakeIntensity > 0 then
+            local intensity = currentWeapon.shakeIntensity
+            cameraShakeX = (math.random() - 0.5) * intensity * 2
+            cameraShakeY = (math.random() - 0.5) * intensity * 2
+        end
+        
+        -- Apply camera shake offset
+        gfx.setDrawOffset(cameraShakeX, cameraShakeY)
+        
         roadScrollOffset = (roadScrollOffset - roadSpeed) % 100
         -- Draw gameplay UI
         drawDesert()
@@ -356,6 +372,9 @@ function playdate.update()
         if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
         Crossair:draw()
         --playdate.ui.crankIndicator:draw(1,1)
+        
+        -- Reset draw offset after gameplay drawing
+        gfx.setDrawOffset(0, 0)
     end
 end
 
@@ -395,14 +414,6 @@ function drawRoad()
 
         -- Disegna cactus ogni 10 tiles
         if i % 30 == 0 and i > 0 then
-            -- Generate or retrieve random scale for this cactus position
-            local cactusKey = i
-            if not cactusScales[cactusKey] then
-                -- Random scale between 0.6 and 1.0
-                cactusScales[cactusKey] = 0.6 + math.random() * 0.4
-            end
-            local randomScale = cactusScales[cactusKey]
-            
             -- Dimensione del cactus basata sulla profondità
             local cactusHeight = 10 + lineZ * 40
             local cactusWidth = 3 + lineZ * 8
@@ -411,14 +422,22 @@ function drawRoad()
             local leftCactusX = centerX - w - cactusWidth * 2
             local rightCactusX = centerX + w + cactusWidth * 2
             
-            -- Disegna cactus sinistro
+            -- Disegna cactus sinistro con sua random scale
             if leftCactusX > 0 and leftCactusX < screenWidth then
-                drawSingleCactus(leftCactusX, y, cactusHeight, randomScale)
+                local leftKey = "L" .. i  -- Unique key for left cactus
+                if not cactusScales[leftKey] then
+                    cactusScales[leftKey] = 0.6 + math.random() * 0.4
+                end
+                drawSingleCactus(leftCactusX, y, cactusHeight, cactusScales[leftKey])
             end
             
-            -- Disegna cactus destro
+            -- Disegna cactus destro con sua random scale
             if rightCactusX > 0 and rightCactusX < screenWidth then
-                drawSingleCactus(rightCactusX, y, cactusHeight, randomScale)
+                local rightKey = "R" .. i  -- Unique key for right cactus
+                if not cactusScales[rightKey] then
+                    cactusScales[rightKey] = 0.6 + math.random() * 0.4
+                end
+                drawSingleCactus(rightCactusX, y, cactusHeight, cactusScales[rightKey])
             end
         end
 

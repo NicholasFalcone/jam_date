@@ -12,7 +12,7 @@ function UI:init()
     self.menuOptions = { "Play", "How to play", "Credits" }
     self.menuIndex = 1
 
-    -- How-to pages (order required) - now using full-page images
+    -- How-to pages
     self.howtoPages = {
         { key="basics1" },
         { key="basics2" },
@@ -22,7 +22,7 @@ function UI:init()
     }
     self.howtoIndex = 1
 
-    -- Credits pages (2 pages with full-page images)
+    -- Credits pages
     self.creditPages = {
         { key="credits1" },
         { key="credits2" }
@@ -38,42 +38,28 @@ function UI:init()
     local audioManager = AudioManager()
     self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
 
-    -- How-to full page images (put in: source/images/howto/)
-    -- These are complete page images with all text and graphics included
+    -- Assets
     self.imgBasics1Page  = self:loadImage("images/howto/BASICS_1-dithered")
     self.imgBasics2Page  = self:loadImage("images/howto/BASICS2_1-dithered")
     self.imgRevolverPage = self:loadImage("images/howto/REVOLVER_1-dithered")
     self.imgMinigunPage  = self:loadImage("images/howto/MINIGUN_1-dithered")
     self.imgShotgunPage  = self:loadImage("images/howto/SHOTGUN_1-dithered")
-
-    -- Credits full page images (put in: source/images/credits/)
-    -- Page 1: SFX Credits, Page 2: Team Faces
     self.imgCredits1Page = self:loadImage("images/credits/CREDITS_2-dithered")
     self.imgCredits2Page = self:loadImage("images/credits/CREDITS_1-dithered")
-
-    -- Keep weapon icons for HUD (different from how-to pages now)
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
     self.imgMinigunGun  = self:loadImage("images/howto/minigun_gun")
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
-
-    -- HUD bullet sprites (safe if missing)
-    -- Put these in: source/images/ui/
-    -- names:
-    -- Bullet_Shotgun.png, Bullet_Revolver.png, Bullet_Minigun.png
     self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
     self.imgBulletRevolver = self:loadImage("images/ui/Bullet_Revolver")
     self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
 
-    -- HUD ammo tracking
     self.hudWeaponType = nil
     self.hudMaxAmmo = 0
-
-    -- Bullet layout cache: cache[weaponType][maxAmmo] = { {x=...,y=...}, ... }
     self.bulletPosCache = {}
 end
 
 function UI:loadImage(pathNoExt)
-    return gfx.image.new(pathNoExt) -- returns nil if missing
+    return gfx.image.new(pathNoExt)
 end
 
 function UI:setScreen(name)
@@ -86,7 +72,6 @@ function UI:setScreen(name)
     end
 end
 
--- Used by GameManager to gate main.lua's "press A" start without touching main.lua
 function UI:canStart()
     return self.screen == "menu" and self.menuIndex == 1
 end
@@ -105,10 +90,7 @@ end
 
 function UI:howtoMove(dir)
     local oldIndex = self.howtoIndex
-    local newIndex = self.howtoIndex + dir
-    self.howtoIndex = clamp(newIndex, 1, #self.howtoPages)
-    
-    -- Play sound only if page actually changed
+    self.howtoIndex = clamp(self.howtoIndex + dir, 1, #self.howtoPages)
     if self.howtoIndex ~= oldIndex and self.SFX_ChangePage then
         pcall(function() self.SFX_ChangePage:play(1) end)
     end
@@ -116,23 +98,17 @@ end
 
 function UI:creditsMove(dir)
     local oldIndex = self.creditIndex
-    local newIndex = self.creditIndex + dir
-    self.creditIndex = clamp(newIndex, 1, #self.creditPages)
-    
-    -- Play sound only if page actually changed
+    self.creditIndex = clamp(self.creditIndex + dir, 1, #self.creditPages)
     if self.creditIndex ~= oldIndex and self.SFX_ChangePage then
         pcall(function() self.SFX_ChangePage:play(1) end)
     end
 end
-
--- ---------- UPDATE ----------
 
 function UI:update()
     if self.screen == "hidden" or self.screen == "hud" then
         return nil
     end
 
-    -- MENU
     if self.screen == "menu" then
         if playdate.buttonJustPressed(playdate.kButtonUp) or playdate.buttonJustPressed(playdate.kButtonLeft) then
             self.menuIndex = wrapIndex(self.menuIndex - 1, #self.menuOptions)
@@ -140,401 +116,166 @@ function UI:update()
             self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
         end
 
-        -- Crank navigation (menu)
         local crankDelta = playdate.getCrankChange()
         if crankDelta ~= 0 then
-            self.crankAccum = self.crankAccum + crankDelta
-
+            self.crankAccum += crankDelta
             while self.crankAccum >= self.crankStepDegMenu do
-                self.crankAccum = self.crankAccum - self.crankStepDegMenu
+                self.crankAccum -= self.crankStepDegMenu
                 self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
             end
-
             while self.crankAccum <= -self.crankStepDegMenu do
-                self.crankAccum = self.crankAccum + self.crankStepDegMenu
+                self.crankAccum += self.crankStepDegMenu
                 self.menuIndex = wrapIndex(self.menuIndex - 1, #self.menuOptions)
             end
         end
 
-        -- Confirm
         if playdate.buttonJustPressed(playdate.kButtonA) then
             if self.menuIndex == 1 then return "play" end
             if self.menuIndex == 2 then return "howto" end
             if self.menuIndex == 3 then return "credits" end
         end
-
         return nil
     end
 
-    -- HOW TO PLAY (4 pages)
-    if self.screen == "howto" then
-        if playdate.buttonJustPressed(playdate.kButtonB) then
-            return "back"
-        end
+    if self.screen == "howto" or self.screen == "credits" then
+        if playdate.buttonJustPressed(playdate.kButtonB) then return "back" end
+        local moveFunc = self.screen == "howto" and self.howtoMove or self.creditsMove
+        
+        if playdate.buttonJustPressed(playdate.kButtonDown) then moveFunc(self, 1)
+        elseif playdate.buttonJustPressed(playdate.kButtonUp) then moveFunc(self, -1) end
 
-        if playdate.buttonJustPressed(playdate.kButtonDown) then
-            self:howtoMove(1)
-        elseif playdate.buttonJustPressed(playdate.kButtonUp) then
-            self:howtoMove(-1)
-        end
-
-        -- Crank: forward = next, backward = previous
         local crankDelta = playdate.getCrankChange()
         if crankDelta ~= 0 then
-            self.crankAccum = self.crankAccum + crankDelta
-
+            self.crankAccum += crankDelta
             while self.crankAccum >= self.crankStepDegHowto do
-                self.crankAccum = self.crankAccum - self.crankStepDegHowto
-                self:howtoMove(1)
+                self.crankAccum -= self.crankStepDegHowto
+                moveFunc(self, 1)
             end
-
             while self.crankAccum <= -self.crankStepDegHowto do
-                self.crankAccum = self.crankAccum + self.crankStepDegHowto
-                self:howtoMove(-1)
+                self.crankAccum += self.crankStepDegHowto
+                moveFunc(self, -1)
             end
         end
-
         return nil
     end
-
-    -- CREDITS
-    if self.screen == "credits" then
-        if playdate.buttonJustPressed(playdate.kButtonB) then
-            return "back"
-        end
-
-        if playdate.buttonJustPressed(playdate.kButtonDown) then
-            self:creditsMove(1)
-        elseif playdate.buttonJustPressed(playdate.kButtonUp) then
-            self:creditsMove(-1)
-        end
-
-        -- Crank: forward = next, backward = previous
-        local crankDelta = playdate.getCrankChange()
-        if crankDelta ~= 0 then
-            self.crankAccum = self.crankAccum + crankDelta
-
-            while self.crankAccum >= self.crankStepDegHowto do
-                self.crankAccum = self.crankAccum - self.crankStepDegHowto
-                self:creditsMove(1)
-            end
-
-            while self.crankAccum <= -self.crankStepDegHowto do
-                self.crankAccum = self.crankAccum + self.crankStepDegHowto
-                self:creditsMove(-1)
-            end
-        end
-
-        return nil
-    end
-
-    return nil
-end
-
--- ---------- DRAW HELPERS ----------
-
-local function drawCenteredText(text, y)
-    local w, _ = gfx.getTextSize(text)
-    gfx.drawText(text, (400 - w) / 2, y)
 end
 
 local function drawPlaceholderBox(x, y, w, h, label)
     gfx.drawRect(x, y, w, h)
-    if label then
-        gfx.drawText(label, x + 6, y + 6)
-    end
+    if label then gfx.drawText(label, x + 6, y + 6) end
 end
 
-local function drawHowtoFrame(showUp, showDown)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, 400, 240)
-    gfx.setColor(gfx.kColorBlack)
-
-    gfx.drawRect(10, 10, 380, 220)
-
-    if showUp then
-        gfx.fillTriangle(200, 6, 192, 18, 208, 18)
-    end
-    if showDown then
-        gfx.fillTriangle(200, 234, 192, 222, 208, 222)
-    end
-end
-
-
--- Build bullet positions in the exact disappearance order:
--- columns: left -> right
--- within a column: bottom -> top
--- FIX: cap rows so minigun doesn't become a super-tall single stack when bullets are scaled small.
 function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     self.bulletPosCache[weaponType] = self.bulletPosCache[weaponType] or {}
     local cacheForWeapon = self.bulletPosCache[weaponType]
-
     local key = tostring(maxAmmo) .. ":" .. tostring(bulletW) .. "x" .. tostring(bulletH)
-    if cacheForWeapon[key] then
-        return cacheForWeapon[key]
-    end
+    if cacheForWeapon[key] then return cacheForWeapon[key] end
 
-    -- Area on the right side under the weapon icon
-    local topY = 54
-    local bottomY = 226
-
-    local stepY = bulletH + 2
-    local stepX = bulletW + 3
-
-    -- rows that physically fit
-    local rowsFit = math.floor((bottomY - topY) / stepY)
-    if rowsFit < 1 then rowsFit = 1 end
-
-    -- rows that we WANT visually (to match mockup)
-    local rowsCap = 20
-    if weaponType == "Minigun" then rowsCap = 24 end
-    if weaponType == "Revolver" then rowsCap = 20 end
-    if weaponType == "Shotgun"  then rowsCap = 18 end
-
-    -- final rows per column
+    local topY, bottomY = 54, 226
+    local stepY, stepX = bulletH + 2, bulletW + 3
+    local rowsFit = math.max(1, math.floor((bottomY - topY) / stepY))
+    local rowsCap = (weaponType == "Minigun") and 24 or 20
     local rows = math.min(rowsFit, rowsCap)
-    if rows < 1 then rows = 1 end
-
     local colCount = math.ceil(maxAmmo / rows)
-    if colCount < 1 then colCount = 1 end
-
-    -- Right-aligned columns
+    
     local rightX = 400 - 18 - bulletW
     local leftX = rightX - (colCount - 1) * stepX
 
-    local positions = {}
-    local idx = 1
-    local remaining = maxAmmo
-
+    local positions, idx, remaining = {}, 1, maxAmmo
     for col = 0, (colCount - 1) do
         local x = leftX + col * stepX
-
-        -- bullets in this column (last column can be partial)
-        local bulletsInCol = rows
-        if remaining < rows then bulletsInCol = remaining end
-        if bulletsInCol < 0 then bulletsInCol = 0 end
-
-        -- TOP-align each column so the last column doesn't start too low,
-        -- but keep ordering bottom -> top for disappearance logic.
+        local bulletsInCol = math.min(rows, remaining)
         for row = 0, (bulletsInCol - 1) do
-            if idx > maxAmmo then break end
             local y = topY + (bulletsInCol - 1 - row) * stepY
             positions[idx] = { x = x, y = y }
-            idx = idx + 1
+            idx += 1
         end
-
-        remaining = remaining - bulletsInCol
+        remaining -= bulletsInCol
         if remaining <= 0 then break end
     end
-
     cacheForWeapon[key] = positions
     return positions
 end
 
-
-
-
 function UI:drawHud(currentWeapon)
--- Hide/stop the system crank indicator (robust across SDK versions)
-if playdate.ui and playdate.ui.crankIndicator then
-    local ci = playdate.ui.crankIndicator
-    local ok = false
-
-    if ci.stop then
-        ok = pcall(function() ci:stop() end)
+    if playdate.ui and playdate.ui.crankIndicator then
+        pcall(function() playdate.ui.crankIndicator:stop() end)
     end
-    if (not ok) and ci.hide then
-        ok = pcall(function() ci:hide() end)
-    end
-    if (not ok) and ci.setVisible then
-        pcall(function() ci:setVisible(false) end)
-    end
-end
-
 
     if not currentWeapon then return end
-
     local weaponType = currentWeapon.weaponType or "Minigun"
-    local ammo = currentWeapon.Ammo or 0
-    if ammo < 0 then ammo = 0 end
+    local ammo = math.max(0, currentWeapon.Ammo or 0)
 
-    -- Detect weapon change or reload -> reset max ammo
-    if self.hudWeaponType ~= weaponType then
+    if self.hudWeaponType ~= weaponType or ammo > (self.hudMaxAmmo or 0) then
         self.hudWeaponType = weaponType
-        self.hudMaxAmmo = ammo
-    elseif ammo > (self.hudMaxAmmo or 0) then
-        -- reload (ammo increased)
         self.hudMaxAmmo = ammo
     end
 
-    local maxAmmo = self.hudMaxAmmo or ammo
-    if maxAmmo < ammo then maxAmmo = ammo end
-
-    -- Weapon icon (top-right): use same images as how-to
-    local iconImg = nil
-    if weaponType == "Minigun" then iconImg = self.imgMinigunGun end
-    if weaponType == "Revolver" then iconImg = self.imgRevolverGun end
-    if weaponType == "Shotgun" then iconImg = self.imgShotgunGun end
+    local maxAmmo = math.max(ammo, self.hudMaxAmmo or ammo)
+    local iconImg = (weaponType == "Minigun") and self.imgMinigunGun or (weaponType == "Revolver" and self.imgRevolverGun or self.imgShotgunGun)
 
     if iconImg then
         local w, h = iconImg:getSize()
-        local x = 400 - 18 - w
-        local y = 12
-        iconImg:draw(x, y)
+        iconImg:draw(400 - 18 - w, 12)
     else
-        -- fallback placeholder
         drawPlaceholderBox(400 - 18 - 48, 12, 48, 24, "WPN")
     end
 
-    -- Bullet sprite by weapon type
-    local bulletImg = self.imgBulletMinigun
-    if weaponType == "Revolver" then bulletImg = self.imgBulletRevolver end
-    if weaponType == "Shotgun" then bulletImg = self.imgBulletShotgun end
-
-    -- Scale only Minigun bullets (your asset is large, e.g. 30x8)
-    -- Change this value to tune size:
-    -- 0.20 smaller, 0.25 medium, 0.30 bigger
-    local bulletScale = 1.0
-    if weaponType == "Minigun" then
-        bulletScale = 0.30
-    end
-
+    local bulletImg = (weaponType == "Revolver") and self.imgBulletRevolver or (weaponType == "Shotgun" and self.imgBulletShotgun or self.imgBulletMinigun)
     local bulletW, bulletH = 6, 6
-    if bulletImg then
-        local w, h = bulletImg:getSize()
-        bulletW = math.max(1, math.floor(w * bulletScale + 0.5))
-        bulletH = math.max(1, math.floor(h * bulletScale + 0.5))
+    if bulletImg then 
+        bulletW, bulletH = bulletImg:getSize() -- Now uses full asset size
     end
 
-    -- Disappearance logic:
-    -- consumed = maxAmmo - ammo
-    -- bullets disappear starting from index 1 (left col, bottom) upward, then next column.
-    local consumed = maxAmmo - ammo
-    if consumed < 0 then consumed = 0 end
-    if consumed > maxAmmo then consumed = maxAmmo end
-
+    local consumed = math.min(maxAmmo, math.max(0, maxAmmo - ammo))
     local positions = self:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
 
-    -- draw visible bullets: indices (consumed+1 .. maxAmmo)
     for i = (consumed + 1), maxAmmo do
         local p = positions[i]
         if p then
-            if bulletImg then
-                if bulletScale == 1.0 then
-                    bulletImg:draw(p.x, p.y)
-                else
-                    bulletImg:drawScaled(p.x, p.y, bulletScale)
-                end
-            else
-                -- fallback bullet
+            if bulletImg then 
+                bulletImg:draw(p.x, p.y) -- Drawn at full scale
+            else 
                 gfx.fillRect(p.x, p.y, bulletW, bulletH)
             end
         end
     end
 end
 
--- ---------- DRAW ----------
-
 function UI:draw(currentWeapon)
-    -- HUD / hidden
     if self.screen == "hidden" or self.screen == "hud" then
         self:drawHud(currentWeapon)
         return
     end
 
-    -- MENU
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(0, 0, 400, 240)
+    gfx.setColor(gfx.kColorBlack)
+
     if self.screen == "menu" then
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, 400, 240)
-        gfx.setColor(gfx.kColorBlack)
-
-        drawCenteredText("MAIN MENU", 28)
-
-        local startY = 90
-        local lineH = 22
+        local w, _ = gfx.getTextSize("MAIN MENU")
+        gfx.drawText("MAIN MENU", (400 - w) / 2, 28)
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "
-            drawCenteredText(prefix .. label, startY + (i - 1) * lineH)
+            local lw, _ = gfx.getTextSize(prefix .. label)
+            gfx.drawText(prefix .. label, (400 - lw) / 2, 90 + (i - 1) * 22)
         end
-
-        return
-    end
-
-    -- HOW TO PLAY
-    if self.screen == "howto" then
-        local showUp = (self.howtoIndex > 1)
-        local showDown = (self.howtoIndex < #self.howtoPages)
+    elseif self.screen == "howto" or self.screen == "credits" then
+        local idx = self.screen == "howto" and self.howtoIndex or self.creditIndex
+        local pages = self.screen == "howto" and self.howtoPages or self.creditPages
+        local pageKey = pages[idx].key
         
-        -- White background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, 400, 240)
-        gfx.setColor(gfx.kColorBlack)
-        
-        -- Draw the appropriate full-page image based on current index
-        local page = self.howtoPages[self.howtoIndex]
         local pageImg = nil
-        
-        if page.key == "basics1" then
-            pageImg = self.imgBasics1Page
-        elseif page.key == "basics2" then
-            pageImg = self.imgBasics2Page
-        elseif page.key == "revolver" then
-            pageImg = self.imgRevolverPage
-        elseif page.key == "minigun" then
-            pageImg = self.imgMinigunPage
-        elseif page.key == "shotgun" then
-            pageImg = self.imgShotgunPage
-        end
-        
-        -- Draw the full-page image (it includes all text, graphics, borders, etc.)
-        if pageImg then
-            pageImg:draw(0, 0)
-        end
-        
-        -- Draw navigation arrows on top (black)
-        if showUp then
-            gfx.fillTriangle(200, 6, 192, 18, 208, 18)
-        end
-        if showDown then
-            gfx.fillTriangle(200, 234, 192, 222, 208, 222)
-        end
-        
-        return
-    end
+        if pageKey == "basics1" then pageImg = self.imgBasics1Page
+        elseif pageKey == "basics2" then pageImg = self.imgBasics2Page
+        elseif pageKey == "revolver" then pageImg = self.imgRevolverPage
+        elseif pageKey == "minigun" then pageImg = self.imgMinigunPage
+        elseif pageKey == "shotgun" then pageImg = self.imgShotgunPage
+        elseif pageKey == "credits1" then pageImg = self.imgCredits1Page
+        elseif pageKey == "credits2" then pageImg = self.imgCredits2Page end
 
-    -- CREDITS
-    if self.screen == "credits" then
-        local showUp = (self.creditIndex > 1)
-        local showDown = (self.creditIndex < #self.creditPages)
-        
-        -- White background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, 400, 240)
-        gfx.setColor(gfx.kColorBlack)
-        
-        -- Draw the appropriate full-page image based on current index
-        local page = self.creditPages[self.creditIndex]
-        local pageImg = nil
-        
-        if page.key == "credits1" then
-            pageImg = self.imgCredits1Page
-        elseif page.key == "credits2" then
-            pageImg = self.imgCredits2Page
-        end
-        
-        -- Draw the full-page image (it includes all text, graphics, borders, etc.)
-        if pageImg then
-            pageImg:draw(0, 0)
-        end
-        
-        -- Draw navigation arrows on top (black)
-        if showUp then
-            gfx.fillTriangle(200, 6, 192, 18, 208, 18)
-        end
-        if showDown then
-            gfx.fillTriangle(200, 234, 192, 222, 208, 222)
-        end
-        
-        return
+        if pageImg then pageImg:draw(0, 0) end
+        if idx > 1 then gfx.fillTriangle(200, 6, 192, 18, 208, 18) end
+        if idx < #pages then gfx.fillTriangle(200, 234, 192, 222, 208, 222) end
     end
 end
