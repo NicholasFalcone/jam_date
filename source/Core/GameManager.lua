@@ -33,7 +33,7 @@ function GameManager:init()
 	self.enemiesDefeated = 0
 	self.playerHealth = 100
 	self.maxPlayerHealth = 100
-
+	self.mainMusic = nil
 	-- Rolling state variables
 	self.weaponDice = nil
 	self.ammoDice = {}
@@ -92,8 +92,10 @@ function GameManager:update(deltaTime)
 	-- Timer continues during both RUNNING
 	if self.currentState == GAME_STATE.RUNNING then
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
-		if music then
-			music:setRate(1 + (self.timeAlive / 120)) -- Gradually increase pitch over time (max 2x at 2 minutes)
+		if self.mainMusic then
+			local nextRate = 1 + (self.timeAlive * 0.0083) -- Gradually increase pitch over time (max 2x at 2 minutes)
+			print("Setting music rate to: " .. tostring(nextRate))
+			self.mainMusic:setRate(nextRate) -- Gradually increase pitch over time (max 2x at 2 minutes)
 		end
 	end
 	
@@ -184,8 +186,6 @@ function GameManager:isIdle() return self.currentState == GAME_STATE.IDLE end
 function GameManager:isPaused() return self.currentState == GAME_STATE.PAUSED end
 function GameManager:isRolling() return self.currentState == GAME_STATE.ROLLING end
 
-local music = nil
-
 function GameManager:onIdleEnter()
 	self.score = 0
 	self.waveCount = 0
@@ -197,9 +197,9 @@ function GameManager:onIdleEnter()
 		self.ui:setScreen("menu")
 	end
 
-	if music then music:stop() end
-	music = audioManager:loadMusic("sounds/Music_Menu")
-	if music then music:play(0) end
+	if self.mainMusic then self.mainMusic:stop() end
+	self.mainMusic = audioManager:loadMusic("sounds/Music_Menu")
+	if self.mainMusic then self.mainMusic:play(0) end
 end
 
 function GameManager:onRunningEnter()
@@ -211,9 +211,9 @@ function GameManager:onRunningEnter()
 		self.enemiesDefeated = 0
 		self.playerHealth = self.maxPlayerHealth
 		
-		if music then music:stop() end
-		music = audioManager:loadMusic("sounds/Music_Game")
-		if music then music:play(0) end
+		if self.mainMusic then self.mainMusic:stop() end
+		self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
+		if self.mainMusic then self.mainMusic:play(0) end
 	end
 	-- When returning from ROLLING, keep existing stats (timer continues)
 end
@@ -286,7 +286,7 @@ end
 function GameManager:onGameOverEnter()
 	self.gameOverIndex = 1 -- default selection: Play Again
 	self.gameOverCrankAccum = 0
-	if music then music:stop() end
+	if self.mainMusic then self.mainMusic:stop() end
 	self.timeAliveFormat = formatTimeMMSSCC(self.timeAlive)
 	if self.SFX_GameOver then
 		pcall(function() self.SFX_GameOver:play(1) end)
