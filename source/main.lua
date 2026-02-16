@@ -43,6 +43,7 @@ local T_ScaleValue = -0.5 -- change in seconds to add to T each interval (can be
 --- ROAD
 local roadScrollOffset = 0
 local roadSpeed = 1.0
+local cactusScales = {} -- Store random scales for each cactus position
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
@@ -394,6 +395,14 @@ function drawRoad()
 
         -- Disegna cactus ogni 10 tiles
         if i % 30 == 0 and i > 0 then
+            -- Generate or retrieve random scale for this cactus position
+            local cactusKey = i
+            if not cactusScales[cactusKey] then
+                -- Random scale between 0.6 and 1.0
+                cactusScales[cactusKey] = 0.6 + math.random() * 0.4
+            end
+            local randomScale = cactusScales[cactusKey]
+            
             -- Dimensione del cactus basata sulla profondità
             local cactusHeight = 10 + lineZ * 40
             local cactusWidth = 3 + lineZ * 8
@@ -404,12 +413,12 @@ function drawRoad()
             
             -- Disegna cactus sinistro
             if leftCactusX > 0 and leftCactusX < screenWidth then
-                drawSingleCactus(leftCactusX, y, cactusHeight)
+                drawSingleCactus(leftCactusX, y, cactusHeight, randomScale)
             end
             
             -- Disegna cactus destro
             if rightCactusX > 0 and rightCactusX < screenWidth then
-                drawSingleCactus(rightCactusX, y, cactusHeight)
+                drawSingleCactus(rightCactusX, y, cactusHeight, randomScale)
             end
         end
 
@@ -418,7 +427,7 @@ end
 
 
 
-function drawSingleCactus(x, y, w)
+function drawSingleCactus(x, y, w, randomScale)
     -- Lazy-load cactus image once
     if not cactusImage then
         cactusImage = gfx.image.new("Sprites/Cactus")
@@ -431,6 +440,8 @@ function drawSingleCactus(x, y, w)
             -- Map the provided width value `w` to a scale factor.
             -- `w` is a small value (depth-based); multiply by 2 to get a visible size.
             scale = (w * 2) / imgW
+            -- Apply random scale (0.6 to 1.0)
+            scale = scale * (randomScale or 1.0)
         end
 
         local scaledImage = cactusImage:scaledImage(scale)
