@@ -131,7 +131,7 @@ function Init()
     -- menu:addOptionsMenuItem("E..my H:",enemyHealthSliderOptions, 3, function(value)
     --     local numericValue = tonumber(value)
     --     enemyStartingHealth = numericValue
-    --     print("Enemy health set to: " .. numericValue)
+    
     --     end)
       -- Caricamento Immagine di Sfondo (versione 500px)
     backgroundImage = gfx.image.new("Sprites/BackgroundArt.png")
@@ -320,10 +320,8 @@ function playdate.update()
             currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
             local newType = weaponTypes[currentWeaponIndex]
             if currentWeapon and currentWeapon.setType then
-                print("Change weapon to " .. newType)
                 currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
             else
-                print ("Switching weapon to " .. newType)
                 currentWeapon = Weapon.new(newType)
             end
         end
@@ -478,17 +476,15 @@ function drawRoad()
     
     -- Disegna linee stradali e cactus integrati
     gfx.setColor(gfx.kColorBlack)
-    for i = 0, 300 do
+    for i = 0, 30 do
         local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
         local y = horizonY + (lineZ * lineZ) * (groundY - horizonY)
         local w = topW + (lineZ * lineZ) * (botW - topW)
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
 
-
-
         -- Disegna cactus ogni 10 tiles
-        if i % 30 == 0 and i > 0 then
+        if i % 5 == 0  and i > 0 then
             -- Dimensione del cactus basata sulla profondità
             local cactusHeight = 10 + lineZ * 40
             local cactusWidth = 3 + lineZ * 8

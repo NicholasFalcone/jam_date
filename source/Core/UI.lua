@@ -52,13 +52,12 @@ function UI:init()
     for _, path in ipairs(bgPathsToTry) do
         self.imgMainMenuBG = self:loadImage(path)
         if self.imgMainMenuBG then
-            print("SUCCESS: Loaded Main menu background from: " .. path)
             break
         end
     end
 
     if not self.imgMainMenuBG then
-        print("ERROR: MainMenuBG.png could not be found! Make sure to REBUILD/RESTART the Playdate Simulator.")
+		
     end
 
     -- ==========================================
@@ -76,13 +75,12 @@ function UI:init()
     for _, path in ipairs(cursorPathsToTry) do
         self.imgMenuCursor = self:loadImage(path)
         if self.imgMenuCursor then
-            print("SUCCESS: Loaded Menu Cursor from: " .. path)
             break
         end
     end
 
     if not self.imgMenuCursor then
-        print("ERROR: Cursor image (Bullet_Revolver_UI_Black.png) could not be found!")
+		
     end
     -- ==========================================
 

@@ -29,6 +29,7 @@ function GameManager:init()
 	self.score = 0
 	self.waveCount = 0
 	self.timeAlive = 0
+	self.timeAliveFormat = "00:00:00"
 	self.enemiesDefeated = 0
 	self.playerHealth = 100
 	self.maxPlayerHealth = 100
@@ -215,7 +216,7 @@ function GameManager:onRunningEnter()
 end
 
 function GameManager:onRollingEnter()
-	print("Rolling state entered - Waiting for swing...")
+	
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
 	
 	if playdate.startAccelerometer then
@@ -263,11 +264,27 @@ function GameManager:triggerDiceRoll()
 	end
 end
 
+local function formatTimeMMSSCC(seconds)
+	local totalSeconds = seconds or 0
+	local m = math.floor(totalSeconds / 60)
+	local s = math.floor(totalSeconds % 60)
+	
+	-- Get centiseconds from fractional part (0-59 range)
+	-- If this causes issues with Playdate FPS, uncomment the random line below
+	local fractional = totalSeconds - math.floor(totalSeconds)
+	local centiseconds = math.floor(fractional * 100) % 60
+	
+	-- Alternative: use random if precise timing is problematic
+	-- local centiseconds = math.random(0, 59)
+	
+	return string.format("%02d:%02d:%02d", m, s, centiseconds)
+end
+
 function GameManager:onGameOverEnter()
 	self.gameOverIndex = 1 -- default selection: Play Again
 	self.gameOverCrankAccum = 0
 	if music then music:stop() end
-	
+	self.timeAliveFormat = formatTimeMMSSCC(self.timeAlive)
 	if self.SFX_GameOver then
 		pcall(function() self.SFX_GameOver:play(1) end)
 	end
@@ -376,22 +393,6 @@ local function clamp(v, lo, hi)
 	return v
 end
 
-local function formatTimeMMSSCC(seconds)
-	local totalSeconds = seconds or 0
-	local m = math.floor(totalSeconds / 60)
-	local s = math.floor(totalSeconds % 60)
-	
-	-- Get centiseconds from fractional part (0-59 range)
-	-- If this causes issues with Playdate FPS, uncomment the random line below
-	local fractional = totalSeconds - math.floor(totalSeconds)
-	local centiseconds = math.floor(fractional * 100) % 60
-	
-	-- Alternative: use random if precise timing is problematic
-	-- local centiseconds = math.random(0, 59)
-	
-	return string.format("%02d:%02d:%02d", m, s, centiseconds)
-end
-
 function GameManager:drawGameOverScreen(g)
 	-- Input: Up/Down + Crank switch selection
 	if playdate.buttonJustPressed(playdate.kButtonDown) then
@@ -429,7 +430,7 @@ function GameManager:drawGameOverScreen(g)
 
 	-- NOTE: Playdate alignment constant is global: kTextAlignment.center
 	g.drawTextAligned("SURVIVAL TIME:", 200, 92, kTextAlignment.center)
-	g.drawTextAligned(formatTimeMMSSCC(self.timeAlive), 200, 112, kTextAlignment.center)
+	g.drawTextAligned(self.timeAliveFormat, 200, 112, kTextAlignment.center)
 
 	-- Keep old stats in code, but not shown
 	-- g.drawText("Score: " .. self.score, 10, 70)
@@ -568,7 +569,7 @@ function GameManager:loadRollingAnimFrames()
 		if img then
 			table.insert(frames, img)
 		else
-			print("Warning: Could not load rolling animation frame: " .. basePath .. tostring(i))
+			
 		end
 	end
 	return frames
