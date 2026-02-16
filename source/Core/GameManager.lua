@@ -69,9 +69,13 @@ end
 
 function GameManager:update(deltaTime)
 	self.rolledThisFrame = false
-	if self.currentState == GAME_STATE.RUNNING then
+	
+	-- Timer continues during both RUNNING and ROLLING states
+	if self.currentState == GAME_STATE.RUNNING or self.currentState == GAME_STATE.ROLLING then
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
-	elseif self.currentState == GAME_STATE.ROLLING then
+	end
+	
+	if self.currentState == GAME_STATE.ROLLING then
 		if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
 			-- Use accelerometer if it exists, otherwise use fallback button
 			if playdate.readAccelerometer then
@@ -160,17 +164,19 @@ function GameManager:onIdleEnter()
 end
 
 function GameManager:onRunningEnter()
-	-- Reset all game state for a fresh start
-	self.score = 0
-	self.waveCount = 1
-	self.timeAlive = 0
-	self.enemiesDefeated = 0
-	self.playerHealth = self.maxPlayerHealth
+	-- Only reset game state when starting a new game (from IDLE), not when returning from ROLLING
 	if self.prevState == GAME_STATE.IDLE then
+		self.score = 0
+		self.waveCount = 1
+		self.timeAlive = 0
+		self.enemiesDefeated = 0
+		self.playerHealth = self.maxPlayerHealth
+		
 		if music then music:stop() end
 		music = audioManager:loadMusic("sounds/Music_Game")
 		if music then music:play(0) end
 	end
+	-- When returning from ROLLING, keep existing stats (timer continues)
 end
 
 function GameManager:onRollingEnter()
@@ -327,13 +333,20 @@ local function clamp(v, lo, hi)
 	return v
 end
 
-local function formatTimeHMS(seconds)
-	local s = math.floor(seconds or 0)
-	local h = math.floor(s / 3600)
-	s = s - h * 3600
-	local m = math.floor(s / 60)
-	s = s - m * 60
-	return string.format("%02d:%02d:%02d", h, m, s)
+local function formatTimeMMSSCC(seconds)
+	local totalSeconds = seconds or 0
+	local m = math.floor(totalSeconds / 60)
+	local s = math.floor(totalSeconds % 60)
+	
+	-- Get centiseconds from fractional part (0-59 range)
+	-- If this causes issues with Playdate FPS, uncomment the random line below
+	local fractional = totalSeconds - math.floor(totalSeconds)
+	local centiseconds = math.floor(fractional * 100) % 60
+	
+	-- Alternative: use random if precise timing is problematic
+	-- local centiseconds = math.random(0, 59)
+	
+	return string.format("%02d:%02d:%02d", m, s, centiseconds)
 end
 
 function GameManager:drawGameOverScreen(g)
@@ -373,14 +386,14 @@ function GameManager:drawGameOverScreen(g)
 
 	-- NOTE: Playdate alignment constant is global: kTextAlignment.center
 	g.drawTextAligned("SURVIVAL TIME:", 200, 92, kTextAlignment.center)
-	g.drawTextAligned(formatTimeHMS(self.timeAlive), 200, 112, kTextAlignment.center)
+	g.drawTextAligned(formatTimeMMSSCC(self.timeAlive), 200, 112, kTextAlignment.center)
 
 	-- Keep old stats in code, but not shown
 	-- g.drawText("Score: " .. self.score, 10, 70)
 	-- g.drawText("Enemies: " .. self.enemiesDefeated, 10, 100)
 
 	-- Selector bullet (aligned to the buttons)
-	local selectorX = 108  
+	local selectorX = 105  -- Moved left from 120
 	local playAgainCenterY = 150
 	local mainMenuCenterY  = 181  -- Adjusted for better vertical centering
 
@@ -425,7 +438,7 @@ function GameManager:drawRollingScreen(g)
 	end
 
 	g.setColor(g.kColorBlack)
-	g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
+	-- g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
 
 	if self.weaponDice then
 		self.weaponDice:draw(80, 70, false, false)
@@ -442,15 +455,15 @@ function GameManager:drawRollingScreen(g)
 		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false)
 	end
 
-	g.setColor(g.kColorWhite)
-	g.drawLine(0, 160, 400, 160)
+	-- g.setColor(g.kColorWhite)
+	-- g.drawLine(0, 160, 400, 160)
 
-	local weaponText = "Weapon: " .. (self.rolledWeapon or "?")
+	-- local weaponText = "Weapon: " .. (self.rolledWeapon or "?")
 	local ammoText = "Ammo: " .. self.rolledAmmo
 
-	g.drawText(weaponText, 50, 175)
+	-- g.drawText(weaponText, 50, 175)
 	g.drawText(ammoText, 50, 200)
-	g.drawText("Press A to continue", 60, 220)
+	-- g.drawText("Press A to continue", 60, 220)
 end
 
 function GameManager.getStateConstants()
