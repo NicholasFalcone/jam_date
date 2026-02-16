@@ -88,7 +88,7 @@ function Weapon:initByType(t, ammo)
 		self.Shotgun_sfxReload = audioManager:loadSample("sounds/SFX_ShotgunReload")
 		-- Set crosshair hit radius for area damage
 		if self.crosshair then
-			self.crosshair.hitRadius = 25  -- Shotgun: area of effect damage
+			self.crosshair.hitRadius = 15  -- Shotgun: area of effect damage
 		end
 	else
 		self.maxWindUp = 0

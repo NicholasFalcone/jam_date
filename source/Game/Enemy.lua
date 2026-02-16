@@ -62,11 +62,13 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
                         
                         local inRange = false
                         if hitRadius > 0 then
-                            -- Use circular distance check for area of effect
+                            -- SHOTGUN: Scale hit radius with enemy distance
+                            -- This makes closer enemies easier to hit
+                            local scaledHitRadius = hitRadius * (1.0 + scale * 3)
                             local distance = math.sqrt(dx * dx + dy * dy)
-                            inRange = distance <= hitRadius
+                            inRange = distance <= scaledHitRadius
                         else
-                            -- Standard rectangular hitbox
+                            -- Standard rectangular hitbox for precise weapons
                             local hitThresholdX = math.max(12, size * 0.5)
                             local hitThresholdY = math.max(16, size * 0.6)
                             inRange = dx <= hitThresholdX and dy <= hitThresholdY
