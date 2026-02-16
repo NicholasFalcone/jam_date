@@ -22,6 +22,7 @@ end
 
 function Weapon:initByType(t, ammo)
 	if t == "Minigun" then
+		self.lastHitProcessTime = 0
 		self.maxWindUp = 25
 		self.maxCooldown = 10
 		self.autoFire = true
@@ -140,15 +141,19 @@ function Weapon:updateMinigun(now)
 			self.FireRate_Current = math.max(self.FireRate_Max, self.FireRate_Current - (self.FireRate_AccelerationValue or 0.01))
 			self.lastAccelTime = now
 		end
+		
 		-- attempt to fire based on current rate
 		if now - (self.lastShotTime or 0) >= (self.FireRate_Current or 0.2) then
+			-- CRITICAL FIX: Call fire but DON'T reset shotProcessed here
+			-- The fire() function already sets shotProcessed = false
 			self:fire(1) -- Minigun consumes 1 ammo per shot
 			self.lastShotTime = now
+			-- REMOVE the self.shotProcessed = false line from here
 		else
 			if self.weaponState ~= "firing" then self:setState("winding") end
 		end
 	else
-		 -- decelerate fire rate when not shooting
+		-- decelerate fire rate when not shooting
 		-- Stop rotation sound if playing
 		if self.Minigun_rotationPlaying and self.Minigun_sfxRotation then
 			pcall(function() self.Minigun_sfxRotation:stop() end)
@@ -165,10 +170,11 @@ function Weapon:updateMinigun(now)
 		end
 	end
 end
-
 function Weapon:updateRevolver(now)
 	if self.Revolver_pendingFire then
 		self:fire(1) -- Revolver consumes 1 ammo per shot
+        -- ADD THIS LINE
+        self.shotProcessed = false
 		self.Revolver_pendingFire = false
 		local shootFrames = self.Revolver_shootFrames
 		local totalNumFrames = (shootFrames and #shootFrames) or 3
@@ -349,6 +355,7 @@ function Weapon:onCrankChangeShotgun(change)
 	if self.Shotgun_accum >= (self.Shotgun_ArcSize or 360) then
 		-- Fire: consume ammo and play shot animation
 		self:fire(2)
+		self.shotProcessed = false
 		local shootFrames = self.Shotgun_shootFrames
 		local totalNumFrames = (shootFrames and #shootFrames) or 3
 		self.Shotgun_fireTicks = totalNumFrames * 2
@@ -472,6 +479,9 @@ function Weapon:fire(ammoConsumption)
 	
 	-- Store if this shot is valid (had ammo) for damage calculation
 	self.lastShotValid = hadAmmo
+	
+	-- ADD THIS LINE - marks that this shot hasn't been processed yet
+	self.shotProcessed = false
 	
 	-- Play weapon sound if available
 	self:playFireSound()

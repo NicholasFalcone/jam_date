@@ -11,14 +11,16 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.isHitted = false
     self.hitTimer = 0  -- Timer per l'effetto hit
     self.deathTimer = 0
-    self.health = _health  -- Richiede 3 colpi per morire
+    self.health = _health
     self.speed = _speed or 0.005
     self.spawnIndex = _spawnIndex
     self.SFX_Death = audioManager:loadSample("sounds/SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
-    self.enemyGoalPosition = -0.2 --- Offset from 0 to trigger player damage (reaching the "ground")
-    -- Load enemy sprite
+    self.enemyGoalPosition = -0.2
     self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
+    
+    -- Flag to track if this enemy was hit in the current shot
+    self.hitThisFrame = false
 end
 
 function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
@@ -32,59 +34,10 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     if not self.isDead then
         self.distance -= 0.005
         if self.distance <= self.enemyGoalPosition then
-            -- reached player, trigger game over
             if gameManager then
                 gameManager:takeDamage(100)
             end
             self.isDead = true
-        else
-            if weapon.weaponState == "firing" then
-                    -- compute enemy screen position and compare with crosshair
-                    local horizonY = 112
-                    local groundY = 240
-                    local relAngle = (self.angle - playerRotation)
-                    local ex = 200 + relAngle * 6
-                    local scale = 1.0 - self.distance
-                    local ey = horizonY + (scale * scale) * (groundY - horizonY)
-                    local size = 10 + scale * 80
-
-                    if crossX and crossY then
-                        -- Center hit detection on the actual enemy position (upper part of the body)
-                        local ey_center = ey - size / 2
-                        local dx = math.abs(ex - crossX)
-                        local dy = math.abs(ey_center - crossY)
-                        
-                        -- Check if crosshair has a hit radius (for shotgun)
-                        local hitRadius = 0
-                        if weapon.crosshair and weapon.crosshair.hitRadius then
-                            hitRadius = weapon.crosshair.hitRadius
-                        end
-                        
-                        local inRange = false
-                        if hitRadius > 0 then
-                            -- SHOTGUN: Scale hit radius with enemy distance
-                            -- This makes closer enemies easier to hit
-                            local scaledHitRadius = hitRadius * (1.0 + scale * 3)
-                            local distance = math.sqrt(dx * dx + dy * dy)
-                            inRange = distance <= scaledHitRadius
-                        else
-                            -- Standard rectangular hitbox for precise weapons
-                            local hitThresholdX = math.max(12, size * 0.5)
-                            local hitThresholdY = math.max(16, size * 0.6)
-                            inRange = dx <= hitThresholdX and dy <= hitThresholdY
-                        end
-                        
-                        -- Only take damage if weapon has ammo (lastShotValid)
-                        if inRange and (weapon and weapon.lastShotValid) then
-                            self:hit(weapon.Damage)
-                        end
-                    else
-                        -- fallback to angle-based check if no crosshair provided
-                        if math.abs(relAngle) < 5 then
-                            self:hit(weapon.Damage)
-                        end
-                    end
-                end
         end
     else
         if self.deathTimer > 0 then
@@ -93,10 +46,56 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     end
 end
 
-function Enemy:hit(dmg)
-    if not self.isHitted then
+-- Reset hit tracking at the start of a new shot
+function Enemy:resetHitTracking()
+    self.hitThisFrame = false
+end
+
+-- Check if this enemy is hit by the current shot
+function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
+    if self.isDead or self.hitThisFrame then return false end
+    
+    local horizonY = 112
+    local groundY = 240
+    local relAngle = (self.angle - playerRotation)
+    local ex = 200 + relAngle * 6
+    local scale = 1.0 - self.distance
+    local ey = horizonY + (scale * scale) * (groundY - horizonY)
+    local size = 10 + scale * 80
+    local ey_center = ey - size / 2
+    
+    if crossX and crossY then
+        local dx = math.abs(ex - crossX)
+        local dy = math.abs(ey_center - crossY)
+        
+        local hitRadius = 0
+        if weapon.crosshair and weapon.crosshair.hitRadius then
+            hitRadius = weapon.crosshair.hitRadius
+        end
+        
+        if hitRadius > 0 then
+            -- SHOTGUN: Scaled hit radius with enemy distance
+            local scaledHitRadius = hitRadius * (1.0 + scale * 3)
+            local distance = math.sqrt(dx * dx + dy * dy)
+            return distance <= scaledHitRadius
+        else
+            -- REVOLVER/MINIGUN: Rectangular hitbox that scales with enemy
+            local hitThresholdX = math.max(12, size * 0.5)
+            local hitThresholdY = math.max(16, size * 0.6)
+            return dx <= hitThresholdX and dy <= hitThresholdY
+        end
+    else
+        -- fallback to angle-based check
+        return math.abs(relAngle) < 5
+    end
+end
+
+-- Apply hit to this enemy
+function Enemy:applyHit(dmg)
+    if not self.isHitted and not self.hitThisFrame then
+        self.hitThisFrame = true
         self.isHitted = true
-        self.hitTimer = 3  -- Mostra l'effetto per 10 frame (~0.16 sec)
+        self.hitTimer = 3
         self.health -= dmg
         if self.SFX_Hit then
             pcall(function() self.SFX_Hit:play(1) end)
@@ -110,13 +109,14 @@ function Enemy:hit(dmg)
             end
             print("Enemy DIED")
         end
+        return true
     end
+    return false
 end
 
 function Enemy:die()
     -- placeholder for any death logic (sound, particles)
 end
-
 
 function Enemy:draw(playerRotation)
     local horizonY = 112
@@ -134,19 +134,15 @@ function Enemy:draw(playerRotation)
         gfx.setColor(gfx.kColorWhite)
         gfx.fillCircleAtPoint(x, y - size/2, size)
     else
-        -- Draw sprite scaled based on distance
         if self.sprite then
             local sw, sh = self.sprite:getSize()
             local scaledWidth = math.floor(sw * scale)
             local scaledHeight = math.floor(sh * scale)
             local scaledImage = self.sprite:scaledImage(scale)
-            -- Draw so the bottom of the sprite sits on the ground line (y)
             scaledImage:draw(x - scaledWidth/2, y - scaledHeight)
         end
         
-        -- Show hit effect on top of sprite
         if self.isHitted then
-            -- Effetto sangue (splash)
             gfx.setColor(gfx.kColorWhite)
             for i = 0, 7 do
                 local angle = math.rad(i * 45 + math.random(-10, 10))
