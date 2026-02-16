@@ -50,7 +50,7 @@ local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.003
+local enemySpeed = 0.005
 local enemyStartingHealth = 100
 
 --- Weapon selection tracking
