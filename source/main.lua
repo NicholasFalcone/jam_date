@@ -546,7 +546,7 @@ end
 
 
 function drawEnemies()
-    for _, e in ipairs(enemies) do
-        e:draw(playerRotation)
+    for i = #enemies, 1, -1 do
+        enemies[i]:draw(playerRotation)
     end
 end
