@@ -534,16 +534,23 @@ function GameManager:drawRollingScreen(g)
 
 	-- Display ammo text with white background
 	local ammoText = "Ammo: " .. self.rolledAmmo
-	local textX = 50
-	local textY = 200
 	
-	-- Draw white rectangle background
+	-- ADJUST POSITION HERE:
+	local textX = 280  -- Center X position (200 = screen center)
+	local textY = 200  -- Y position
+	
+	-- Rectangle dimensions
+	local rectWidth = 100
+	local rectHeight = 20
+	local rectPadding = 5
+	
+	-- Draw white rectangle background (centered on text)
 	g.setColor(g.kColorWhite)
-	g.fillRect(textX - 5, textY - 2, 100, 20)  -- x, y, width, height
+	g.fillRect(textX - rectWidth/2 - rectPadding, textY - 2, rectWidth + rectPadding*2, rectHeight)
 	
-	-- Draw black text on top
+	-- Draw black text centered on top
 	g.setColor(g.kColorBlack)
-	g.drawText(ammoText, textX, textY)
+	g.drawTextAligned(ammoText, textX, textY, kTextAlignment.center)
 end
  
 function GameManager.getStateConstants()
