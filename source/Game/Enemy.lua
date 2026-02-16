@@ -159,13 +159,12 @@ function Enemy:draw(playerRotation)
             
             local img = explosionFramesCache[frameIndex]
             
-            if img then
-                local scaledImage = img:scaledImage(scale)
-                if scaledImage then
-                    local sW, sH = scaledImage:getSize()
-                    -- Center the explosion on the enemy's body center point
-                    scaledImage:draw(x - sW/2, (y - size/2) - sH/2)
-                end
+            if img and scale > 0 then
+                local sW, sH = img:getSize()
+                local scaledW = sW * scale
+                local scaledH = sH * scale
+                -- Center the explosion on the enemy's body center point
+                img:drawScaled(x - scaledW/2, (y - size/2) - scaledH/2, scale, scale)
             end
         else
             -- Fallback in case images didn't load properly
@@ -175,12 +174,11 @@ function Enemy:draw(playerRotation)
             gfx.fillCircleAtPoint(x, y - size/2, size)
         end
     else
-        if self.sprite then
+        if self.sprite and scale > 0 then
             local sw, sh = self.sprite:getSize()
-            local scaledWidth = math.floor(sw * scale)
-            local scaledHeight = math.floor(sh * scale)
-            local scaledImage = self.sprite:scaledImage(scale)
-            scaledImage:draw(x - scaledWidth/2, y - scaledHeight)
+            local scaledWidth = sw * scale
+            local scaledHeight = sh * scale
+            self.sprite:drawScaled(x - scaledWidth/2, y - scaledHeight, scale, scale)
         end
         
         if self.isHitted then

@@ -530,11 +530,12 @@ function drawSingleCactus(x, y, w, randomScale)
             scale = scale * (randomScale or 1.0)
         end
 
-        local scaledImage = cactusImage:scaledImage(scale)
-        if scaledImage then
-            local sw, sh = scaledImage:getSize()
+        if scale > 0 then
+            local sw, sh = cactusImage:getSize()
+            local scaledW = sw * scale
+            local scaledH = sh * scale
             -- Draw so the bottom of the sprite sits on the given y (ground line)
-            scaledImage:draw(x - sw / 2, y - sh)
+            cactusImage:drawScaled(x - scaledW / 2, y - scaledH, scale, scale)
         end
     end
 end
