@@ -405,10 +405,9 @@ function UI:draw(currentWeapon)
         gfx.fillRect(0, 0, 400, 240)
         gfx.setColor(gfx.kColorBlack)
 
-        local w, _ = gfx.getTextSize("MAIN MENU")
-        gfx.drawText("MAIN MENU", (400 - w) / 2, 28)
+        -- Removed MAIN MENU text
 
-        local startY = 90
+        local startY = 130 -- Moved lower
         local lineH = 22
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "
