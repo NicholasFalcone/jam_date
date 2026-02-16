@@ -38,8 +38,29 @@ function UI:init()
     local audioManager = AudioManager()
     self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
 
-    -- Load Backgrounds
-    self.imgMainMenuBG = self:loadImage("images/ui/MainMenuBG")
+    -- ==========================================
+    -- ROBUST BACKGROUND LOADER
+    -- ==========================================
+    local bgPathsToTry = {
+        "images/ui/MainMenuBG",
+        "images/Ui/MainMenuBG",
+        "Ui/MainMenuBG",
+        "ui/MainMenuBG",
+        "MainMenuBG"
+    }
+    
+    for _, path in ipairs(bgPathsToTry) do
+        self.imgMainMenuBG = self:loadImage(path)
+        if self.imgMainMenuBG then
+            print("SUCCESS: Loaded Main menu background from: " .. path)
+            break
+        end
+    end
+
+    if not self.imgMainMenuBG then
+        print("ERROR: MainMenuBG.png could not be found! Make sure to REBUILD/RESTART the Playdate Simulator.")
+    end
+    -- ==========================================
 
     -- How-to full page images (put in: source/images/howto/)
     -- These are complete page images with all text and graphics included
@@ -61,8 +82,6 @@ function UI:init()
 
     -- HUD bullet sprites (safe if missing)
     -- Put these in: source/images/ui/
-    -- names:
-    -- Bullet_Shotgun.png, Bullet_Revolver.png, Bullet_Minigun.png
     self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
     self.imgBulletRevolver = self:loadImage("images/ui/Bullet_Revolver")
     self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
@@ -416,8 +435,8 @@ function UI:draw(currentWeapon)
         -- Ensure text draws in black over the background
         gfx.setColor(gfx.kColorBlack)
 
-        -- Draw options list
-        local startY = 130 -- Lowered position for menu items
+        -- Draw options list (Main Menu Text removed, list pushed lower)
+        local startY = 130 
         local lineH = 22
         for i, label in ipairs(self.menuOptions) do
             local prefix = (i == self.menuIndex) and "> " or "  "

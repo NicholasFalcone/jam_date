@@ -4,6 +4,9 @@ local gfx = playdate.graphics
 
 local audioManager = AudioManager()
 
+-- Cache for the explosion images so we only load them once
+local explosionFramesCache = nil
+
 function Enemy:init(_health, _angle, _speed, _spawnIndex)
     self.angle = _angle or math.random(-15, 15)
     self.distance = 1.0
@@ -21,6 +24,18 @@ function Enemy:init(_health, _angle, _speed, _spawnIndex)
     
     -- Flag to track if this enemy was hit in the current shot
     self.hitThisFrame = false
+
+    -- Load explosion sequence (Frames 1 to 5)
+    if not explosionFramesCache then
+        explosionFramesCache = {}
+        local basePath = "Sprites/Enemies/Explosion - "
+        for i = 1, 5 do
+            local img = gfx.image.new(basePath .. tostring(i))
+            if img then
+                table.insert(explosionFramesCache, img)
+            end
+        end
+    end
 end
 
 function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
@@ -103,7 +118,11 @@ function Enemy:applyHit(dmg)
         print("Enemy HIT! Health remaining: " .. self.health)
         if self.health <= 0 then
             self.isDead = true
-            self.deathTimer = 10
+            
+            -- Set death timer based on how many explosion frames we have (2 ticks per frame)
+            local totalFrames = (explosionFramesCache and #explosionFramesCache > 0) and #explosionFramesCache or 5
+            self.deathTimer = totalFrames * 2
+            
             if self.SFX_Death then
                 pcall(function() self.SFX_Death:play(1) end)
             end
@@ -129,10 +148,32 @@ function Enemy:draw(playerRotation)
     local size = 10 + scale * 80
 
     if self.isDead then
-        gfx.setColor(gfx.kColorBlack)
-        gfx.fillCircleAtPoint(x, y - size/2, size * 1.5)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillCircleAtPoint(x, y - size/2, size)
+        if explosionFramesCache and #explosionFramesCache > 0 and scale > 0 then
+            -- Animation calculation (same logic used for weapons)
+            local totalFrames = #explosionFramesCache
+            local totalTicks = totalFrames * 2
+            
+            -- Calculate current frame index (1 to totalFrames)
+            local currentFrame = math.floor((totalTicks - self.deathTimer) / 2) + 1
+            local frameIndex = math.max(1, math.min(totalFrames, currentFrame))
+            
+            local img = explosionFramesCache[frameIndex]
+            
+            if img then
+                local scaledImage = img:scaledImage(scale)
+                if scaledImage then
+                    local sW, sH = scaledImage:getSize()
+                    -- Center the explosion on the enemy's body center point
+                    scaledImage:draw(x - sW/2, (y - size/2) - sH/2)
+                end
+            end
+        else
+            -- Fallback in case images didn't load properly
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillCircleAtPoint(x, y - size/2, size * 1.5)
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillCircleAtPoint(x, y - size/2, size)
+        end
     else
         if self.sprite then
             local sw, sh = self.sprite:getSize()
