@@ -86,6 +86,10 @@ function GameManager:setOnDiceRollCallback(callback)
 	self.onDiceRoll = callback
 end
 
+function clamp(val, min, max)
+  return val < min and min or val > max and max or val
+end
+
 function GameManager:update(deltaTime)
 	self.rolledThisFrame = false
 	
@@ -94,6 +98,8 @@ function GameManager:update(deltaTime)
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
 		if self.mainMusic then
 			local nextRate = 1 + (self.timeAlive * 0.0083) -- Gradually increase pitch over time (max 2x at 2 minutes)
+			nextRate = clamp(nextRate, 1, 1.5) -- Cap the pitch increase at 1.5x for better audio quality
+			print("Time Alive: " .. string.format("%.2f", self.timeAlive) .. "s, Setting music rate to: " .. string.format("%.2f", nextRate))
 			self.mainMusic:setRate(nextRate) -- Gradually increase pitch over time (max 2x at 2 minutes)
 		end
 	end

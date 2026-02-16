@@ -303,7 +303,7 @@ function playdate.update()
     local now = playdate.getElapsedTime()
 
     -- Always update game manager logic (for time, shake detection, etc)
-    gameManager:update(0.016)
+    gameManager:update(0.033333333)
     
     if gameManager:isRunning() then
         -- handle input: crank (only during gameplay)
