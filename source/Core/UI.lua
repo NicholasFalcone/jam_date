@@ -1,5 +1,7 @@
 class('UI').extends()
 
+import "Core/AudioManager"
+
 local gfx = playdate.graphics
 
 function UI:init()
@@ -31,6 +33,10 @@ function UI:init()
     self.crankAccum = 0
     self.crankStepDegMenu = 18
     self.crankStepDegHowto = 25
+
+    -- Load page change sound
+    local audioManager = AudioManager()
+    self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
 
     -- How-to full page images (put in: source/images/howto/)
     -- These are complete page images with all text and graphics included
@@ -98,13 +104,25 @@ local function clamp(v, lo, hi)
 end
 
 function UI:howtoMove(dir)
+    local oldIndex = self.howtoIndex
     local newIndex = self.howtoIndex + dir
     self.howtoIndex = clamp(newIndex, 1, #self.howtoPages)
+    
+    -- Play sound only if page actually changed
+    if self.howtoIndex ~= oldIndex and self.SFX_ChangePage then
+        pcall(function() self.SFX_ChangePage:play(1) end)
+    end
 end
 
 function UI:creditsMove(dir)
+    local oldIndex = self.creditIndex
     local newIndex = self.creditIndex + dir
     self.creditIndex = clamp(newIndex, 1, #self.creditPages)
+    
+    -- Play sound only if page actually changed
+    if self.creditIndex ~= oldIndex and self.SFX_ChangePage then
+        pcall(function() self.SFX_ChangePage:play(1) end)
+    end
 end
 
 -- ---------- UPDATE ----------
