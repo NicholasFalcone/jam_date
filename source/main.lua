@@ -55,7 +55,7 @@ local lastNScaleTime = playdate.getElapsedTime()
 local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.005
+local enemySpeed = 0.007
 local enemyStartingHealth = 100
 
 --- Weapon selection tracking
@@ -169,7 +169,6 @@ function updateEnemies()
 
     -- spawn based on elapsed seconds
     if now - lastSpawnTime >= spawnT then
-        -- determine free spawn indices
         local occupied = {}
         for _, en in ipairs(enemies) do
             if en.spawnIndex then occupied[en.spawnIndex] = true end
@@ -180,7 +179,6 @@ function updateEnemies()
             if not occupied[idx] then table.insert(freeIndices, idx) end
         end
 
-        -- shuffle freeIndices
         for i = #freeIndices, 2, -1 do
             local j = math.random(1, i)
             freeIndices[i], freeIndices[j] = freeIndices[j], freeIndices[i]
@@ -197,10 +195,80 @@ function updateEnemies()
         lastSpawnTime = now
     end
 
-    -- update existing enemies and cleanup
+    -- First, update all enemies (move them, etc.)
     for i = #enemies, 1, -1 do
         local e = enemies[i]
         e:update(playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
+    end
+
+    -- Then, handle hit detection when firing
+    -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
+ if currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
+        -- For minigun, we need to be more careful about timing
+        if currentWeapon.weaponType == "Minigun" then
+            -- Only process if enough time has passed since last shot
+            local now = playdate.getElapsedTime()
+            if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= currentWeapon.FireRate_Current then
+                currentWeapon.lastHitProcessTime = now
+                
+                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+                for _, e in ipairs(enemies) do
+                    e:resetHitTracking()
+                end
+                
+                -- Find all enemies that are hit
+                local hitEnemies = {}
+                for _, e in ipairs(enemies) do
+                    if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
+                        table.insert(hitEnemies, e)
+                    end
+                end
+                
+                -- Apply hits based on weapon type
+                if #hitEnemies > 0 then
+                    -- Sort by distance (closest first)
+                    table.sort(hitEnemies, function(a, b)
+                        return a.distance < b.distance
+                    end)
+                    -- Hit only the closest one
+                    hitEnemies[1]:applyHit(currentWeapon.Damage)
+                end
+            end
+        else
+            -- Original logic for other weapons
+            if not currentWeapon.shotProcessed then
+                currentWeapon.shotProcessed = true
+                
+                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+                for _, e in ipairs(enemies) do
+                    e:resetHitTracking()
+                end
+                
+                local hitEnemies = {}
+                for _, e in ipairs(enemies) do
+                    if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
+                        table.insert(hitEnemies, e)
+                    end
+                end
+                
+                if #hitEnemies > 0 then
+                    if currentWeapon.weaponType == "Shotgun" then
+                        for _, e in ipairs(hitEnemies) do
+                            e:applyHit(currentWeapon.Damage)
+                        end
+                    else
+                        table.sort(hitEnemies, function(a, b)
+                            return a.distance < b.distance
+                        end)
+                        hitEnemies[1]:applyHit(currentWeapon.Damage)
+                    end
+                end
+            end
+        end
+    end
+    -- Clean up dead enemies
+    for i = #enemies, 1, -1 do
+        local e = enemies[i]
         if e.isDead and e.deathTimer <= 0 then
             e:die()
             table.remove(enemies, i)
@@ -209,13 +277,12 @@ function updateEnemies()
         end
     end
     
-    -- Check if out of ammo - trigger rolling state
+    -- Check if out of ammo
     if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
         needsWeaponRoll = true
         gameManager:setState("rolling")
     end
 end
-
 
 function DoAim()
     local h = Input:HorizontalValue()
