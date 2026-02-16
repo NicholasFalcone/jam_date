@@ -9,7 +9,6 @@ import "CoreLibs/crank"
 import "Core/UI"
 import "Core/Input"
 import "Core/GameManager"
-import "Core/AudioManager"
 import "Game/Crossair"
 import "Game/Enemy"
 import "Game/Weapon"
@@ -17,11 +16,9 @@ import "Game/Dice"
 
 local gfx = playdate.graphics
 local screenWidth = playdate.display.getWidth()
-local screenHeight = playdate.display.getHeight()
 
 local enemies = {}
 local gameManager = GameManager()
-local audioManager = AudioManager()
 
 gameManager:setOnDiceRollCallback(function()
     for _, e in ipairs(enemies) do
@@ -135,13 +132,7 @@ function Init()
     --     end)
       -- Caricamento Immagine di Sfondo (versione 500px)
     backgroundImage = gfx.image.new("Sprites/BackgroundArt.png")
-    
-    if not backgroundImage then
-        bgLoadError = "Img non caricata!"
-    else
-        local w, h = backgroundImage:getSize()
-        bgLoadError = "Caricata: " .. w .. "x" .. h
-    end
+
     -- Ensure menu music/UI are initialized without starting gameplay
     if gameManager and gameManager.onIdleEnter then
         pcall(function() gameManager:onIdleEnter() end)
@@ -315,26 +306,7 @@ function playdate.update()
         if currentWeapon and currentWeapon.update then
             currentWeapon:update(now)
         end
-
-        -- weapon switch (button B)
-        if playdate.buttonJustPressed(playdate.kButtonB) then
-            currentWeaponIndex = (currentWeaponIndex % #weaponTypes) + 1
-            local newType = weaponTypes[currentWeaponIndex]
-            if currentWeapon and currentWeapon.setType then
-                currentWeapon:setType(newType, 100) -- reset ammo to 100 on switch for testing
-            else
-                currentWeapon = Weapon.new(newType)
-            end
-        end
-        --- testing dice roll with button A
-        if playdate.buttonJustPressed(playdate.kButtonA) then
-            gameManager:setState("rolling")
-            gameManager:drawStateScreen(gfx)
-            return
-        end
     end
-    
-
     
     -- Stop all weapon sounds if game just entered game over state
     if gameManager:isGameOver() and currentWeapon and currentWeapon.stopAllSounds then

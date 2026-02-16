@@ -86,7 +86,7 @@ function GameManager:setOnDiceRollCallback(callback)
 	self.onDiceRoll = callback
 end
 
-function clamp(val, min, max)
+local function clamp(val, min, max)
   return val < min and min or val > max and max or val
 end
 
