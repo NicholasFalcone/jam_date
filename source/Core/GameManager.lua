@@ -419,6 +419,12 @@ function GameManager:drawRollingScreen(g)
 	g.fillRect(0, 0, 400, 240)
 	
 	if self.rollingPhase == ROLLING_PHASE.WAITING_FOR_SWING then
+		-- Apply random camera shake offset (Softened intensity: 0.8)
+		local shakeIntensity = 0.8 
+		local shakeX = (math.random() - 0.5) * shakeIntensity * 2
+		local shakeY = (math.random() - 0.5) * shakeIntensity * 2
+		g.setDrawOffset(shakeX, shakeY)
+
 		-- Display the shake image centered on screen
 		if self.shakeItImage then
 			local imgW, imgH = self.shakeItImage:getSize()
@@ -434,6 +440,9 @@ function GameManager:drawRollingScreen(g)
 			g.setColor(g.kColorBlack)
 			g.drawTextAligned(prompt, 200, 100, kTextAlignment.center)
 		end
+		
+		-- Reset offset immediately after drawing the shaking elements
+		g.setDrawOffset(0, 0)
 		return
 	end
 
