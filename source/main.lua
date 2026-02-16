@@ -299,11 +299,12 @@ function DoAim()
 end
 
 function playdate.update()
-    -- update game state
     -- update weapon internals (accel/decay and firing timing)
     local now = playdate.getElapsedTime()
 
-
+    -- Always update game manager logic (for time, shake detection, etc)
+    gameManager:update(0.016)
+    
     if gameManager:isRunning() then
         -- handle input: crank (only during gameplay)
         local change = Input:getCrankChange()
@@ -333,8 +334,7 @@ function playdate.update()
         end
     end
     
-    -- Always update game manager logic (for time, shake detection, etc)
-    gameManager:update(0.016)
+
     
     -- Stop all weapon sounds if game just entered game over state
     if gameManager:isGameOver() and currentWeapon and currentWeapon.stopAllSounds then

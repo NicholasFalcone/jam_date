@@ -185,7 +185,7 @@ function Enemy:draw(playerRotation)
             gfx.setColor(gfx.kColorWhite)
             for i = 0, 7 do
                 local angle = math.rad(i * 45 + math.random(-10, 10))
-                local len = size * 0.3 + math.random(0, math.max(1, math.floor(size * 0.2)))
+                local len = size * 0.5 + math.random(0, math.max(1, math.floor(size * 0.2)))
                 local startX = x + math.cos(angle) * size * 0.3
                 local startY = (y - size/2) + math.sin(angle) * size * 0.3
                 local endX = startX + math.cos(angle) * len

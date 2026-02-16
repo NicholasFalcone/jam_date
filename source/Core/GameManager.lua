@@ -89,9 +89,12 @@ end
 function GameManager:update(deltaTime)
 	self.rolledThisFrame = false
 	
-	-- Timer continues during both RUNNING and ROLLING states
-	if self.currentState == GAME_STATE.RUNNING or self.currentState == GAME_STATE.ROLLING then
+	-- Timer continues during both RUNNING
+	if self.currentState == GAME_STATE.RUNNING then
 		self.timeAlive = self.timeAlive + (deltaTime or 0.016)
+		if music then
+			music:setRate(1 + (self.timeAlive / 120)) -- Gradually increase pitch over time (max 2x at 2 minutes)
+		end
 	end
 	
 	if self.currentState == GAME_STATE.ROLLING then
