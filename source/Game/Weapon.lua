@@ -491,6 +491,17 @@ function Weapon:playFireSound()
 	end
 end
 
+-- Stop all looping weapon sounds (especially minigun rotation)
+function Weapon:stopAllSounds()
+	if self.weaponType == "Minigun" then
+		if self.Minigun_rotationPlaying and self.Minigun_sfxRotation then
+			pcall(function() self.Minigun_sfxRotation:stop() end)
+			self.Minigun_rotationPlaying = false
+		end
+		self.isShooting = false
+	end
+end
+
 function Weapon:draw()
 	local cx = 200
 	local cy = 220

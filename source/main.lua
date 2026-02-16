@@ -257,6 +257,11 @@ function playdate.update()
     
     -- Always update game manager logic (for time, shake detection, etc)
     gameManager:update(0.016)
+    
+    -- Stop all weapon sounds if game just entered game over state
+    if gameManager:isGameOver() and currentWeapon and currentWeapon.stopAllSounds then
+        currentWeapon:stopAllSounds()
+    end
 
     -- Handle state transitions via crank button
     if playdate.buttonJustPressed(playdate.kButtonA) then
@@ -272,9 +277,17 @@ function playdate.update()
             spawnT = 5  -- Reset spawn interval
             needsWeaponRoll = false
             
-            -- Reset weapon to default
-            currentWeaponIndex = 1
-            currentWeapon:setType(weaponTypes[currentWeaponIndex], 100)
+            -- Start with random weapon and random ammo
+            currentWeaponIndex = math.random(1, #weaponTypes)
+            local randomAmmo = 100 -- default
+            if weaponTypes[currentWeaponIndex] == "Minigun" then
+                randomAmmo = math.random(40, 80)
+            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
+                randomAmmo = math.random(10, 16)
+            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
+                randomAmmo = math.random(8, 14)
+            end
+            currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             gameManager:setState("running")
         elseif gameManager:isRolling() then
@@ -304,12 +317,20 @@ function playdate.update()
             spawnN = 2
             spawnT = 5
             
-            -- Reset weapon completely
-            currentWeaponIndex = 1
-            if currentWeapon.Minigun_rotationPlaying and currentWeapon.Minigun_sfxRotation then
-                pcall(function() currentWeapon.Minigun_sfxRotation:stop() end)
+            -- Reset weapon to random selection with random ammo
+            currentWeaponIndex = math.random(1, #weaponTypes)
+            if currentWeapon and currentWeapon.stopAllSounds then
+                currentWeapon:stopAllSounds()
             end
-            currentWeapon:setType(weaponTypes[currentWeaponIndex], 100)
+            local randomAmmo = 100 -- default
+            if weaponTypes[currentWeaponIndex] == "Minigun" then
+                randomAmmo = math.random(40, 80)
+            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
+                randomAmmo = math.random(10, 16)
+            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
+                randomAmmo = math.random(8, 14)
+            end
+            currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             gameManager:setState("idle")
         end

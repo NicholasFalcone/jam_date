@@ -164,8 +164,8 @@ function GameManager:onIdleEnter()
 end
 
 function GameManager:onRunningEnter()
-	-- Only reset game state when starting a new game (from IDLE), not when returning from ROLLING
-	if self.prevState == GAME_STATE.IDLE then
+	-- Only reset game state when starting a new game (from IDLE or GAME_OVER), not when returning from ROLLING
+	if self.prevState == GAME_STATE.IDLE or self.prevState == GAME_STATE.GAME_OVER then
 		self.score = 0
 		self.waveCount = 1
 		self.timeAlive = 0
