@@ -272,7 +272,7 @@ function GameManager:calculateRollingResults()
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		if weaponRoll <= 2 then
-			self.rolledAmmo = self.rolledAmmo + (die.value * 4)
+			self.rolledAmmo = self.rolledAmmo + (die.value * 3)
 		else
 			self.rolledAmmo = self.rolledAmmo + die.value
 		end

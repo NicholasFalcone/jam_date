@@ -36,7 +36,7 @@ function Weapon:initByType(t, ammo)
 		self.FireRate_DecelerationSpeed = 0.5 -- every X seconds when stopped, decelerate
 		self.FireRate_DecelerationValue = 0.1 -- increase time between shots by this
 		self.FireRate_Max = 0.1 -- cap: minimum time between shots (fastest)
-		self.Damage = 25
+		self.Damage = 20
 		self.isShooting = false
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()
