@@ -11,7 +11,7 @@ function Dice:roll()
     self.value = math.random(1, 6)
 end
 
-function Dice:draw(x, y, black, showValue)
+function Dice:draw(x, y, black, showValue, dotsOnly)
     local size = 40
     local halfSize = size / 2
 
@@ -20,17 +20,19 @@ function Dice:draw(x, y, black, showValue)
     if v < 1 then v = 1 end
     if v > 6 then v = 6 end
 
-    -- Draw dice background and border
-    if black then
-        gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(x - halfSize, y - halfSize, size, size)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.drawRect(x - halfSize, y - halfSize, size, size)
-    else
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(x - halfSize, y - halfSize, size, size)
-        gfx.setColor(gfx.kColorBlack)
-        gfx.drawRect(x - halfSize, y - halfSize, size, size)
+    -- Draw dice background and border (skip if dotsOnly mode)
+    if not dotsOnly then
+        if black then
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(x - halfSize, y - halfSize, size, size)
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawRect(x - halfSize, y - halfSize, size, size)
+        else
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(x - halfSize, y - halfSize, size, size)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(x - halfSize, y - halfSize, size, size)
+        end
     end
 
     -- compute dot offsets relative to size

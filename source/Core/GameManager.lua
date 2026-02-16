@@ -49,6 +49,13 @@ function GameManager:init()
 	
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
+	
+	-- Weapon result images (shown after rolling dice)
+	self.weaponResultImages = {
+		Minigun = gfx.image.new("images/rolling_results/Minigun"),
+		Revolver = gfx.image.new("images/rolling_results/Revolver"),
+		Shotgun = gfx.image.new("images/rolling_results/Shotgun")
+	}
 
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
@@ -107,7 +114,7 @@ function GameManager:update(deltaTime)
 			-- Handle animation tick countdown
 			if self.rollingAnimTicks > 0 then
 				-- Calculate which frame to show (11 frames over 30 ticks = ~2.7 ticks per frame)
-				local totalTicks = 18
+				local totalTicks = 30
 				local totalFrames = 11
 				local ticksPerFrame = totalTicks / totalFrames  -- ~2.7 ticks per frame
 				
@@ -226,7 +233,7 @@ end
 function GameManager:triggerDiceRoll()
 	-- Start animation phase
 	self.rollingPhase = ROLLING_PHASE.PLAYING_ANIMATION
-	self.rollingAnimTicks = 18
+	self.rollingAnimTicks = 30  -- 30 frames = 0.5 seconds @ 60fps
 	self.rollingAnimFrameIndex = 1
 	self.rolledThisFrame = true
 	
@@ -493,34 +500,43 @@ function GameManager:drawRollingScreen(g)
 
 	-- RESULTS phase - show dice and results
 	g.setColor(g.kColorBlack)
-	-- g.drawText("ROLL FOR AMMO & WEAPON", 30, 10)
-
-	if self.weaponDice then
-		self.weaponDice:draw(80, 70, false, false)
+	
+	-- Display weapon-specific result image
+	if self.rolledWeapon and self.weaponResultImages and self.weaponResultImages[self.rolledWeapon] then
+		local weaponImg = self.weaponResultImages[self.rolledWeapon]
+		-- Draw centered on screen
+		local imgW, imgH = weaponImg:getSize()
+		local x = math.floor((400 - imgW) / 2)
+		local y = math.floor((240 - imgH) / 2)
+		weaponImg:draw(x, y)
 	end
-
+	
+	-- Draw ammo dice (dots only, no squares) - weapon dice removed
 	if self.ammoDice and #self.ammoDice == 4 then
-		local baseX = 260
-		local baseY = 60
-		local spacing = 45
+		local baseX = 248
+		local baseY = 71
+		local spacing = 65
 
-		self.ammoDice[1]:draw(baseX, baseY, true, false)
-		self.ammoDice[2]:draw(baseX + spacing, baseY, true, false)
-		self.ammoDice[3]:draw(baseX, baseY + spacing, true, false)
-		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false)
+		self.ammoDice[1]:draw(baseX, baseY, true, false, true)  -- 5th param = dotsOnly
+		self.ammoDice[2]:draw(baseX + spacing, baseY, true, false, true)
+		self.ammoDice[3]:draw(baseX, baseY + spacing, true, false, true)
+		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false, true)
 	end
 
-	-- g.setColor(g.kColorWhite)
-	-- g.drawLine(0, 160, 400, 160)
-
-	-- local weaponText = "Weapon: " .. (self.rolledWeapon or "?")
+	-- Display ammo text with white background
 	local ammoText = "Ammo: " .. self.rolledAmmo
-
-	-- g.drawText(weaponText, 50, 175)
-	g.drawText(ammoText, 50, 200)
-	-- g.drawText("Press A to continue", 60, 220)
+	local textX = 50
+	local textY = 200
+	
+	-- Draw white rectangle background
+	g.setColor(g.kColorWhite)
+	g.fillRect(textX - 5, textY - 2, 100, 20)  -- x, y, width, height
+	
+	-- Draw black text on top
+	g.setColor(g.kColorBlack)
+	g.drawText(ammoText, textX, textY)
 end
-
+ 
 function GameManager.getStateConstants()
 	return GAME_STATE
 end
