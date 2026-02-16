@@ -70,7 +70,7 @@ function Weapon:initByType(t, ammo)
 		end
 	elseif t == "Shotgun" then
 		self.maxWindUp = 0
-		self.maxCooldown = 30
+		self.maxCooldown = 22
 		self.autoFire = false
 		self.Shotgun_reloadFrames = self:loadShotgunReloadFrames()
 		self.Shotgun_shootFrames = self:loadShotgunShootFrames()

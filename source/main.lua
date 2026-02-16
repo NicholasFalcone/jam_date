@@ -220,17 +220,17 @@ end
 
 function playdate.update()
     -- update game state
-    -- handle input: crank
-    local change = Input:getCrankChange()
-    if currentWeapon and currentWeapon.onCrankChange then
-        currentWeapon:onCrankChange(change)
-    end
-
     -- update weapon internals (accel/decay and firing timing)
     local now = playdate.getElapsedTime()
 
 
     if gameManager:isRunning() then
+        -- handle input: crank (only during gameplay)
+        local change = Input:getCrankChange()
+        if currentWeapon and currentWeapon.onCrankChange then
+            currentWeapon:onCrankChange(change)
+        end
+        
         if currentWeapon and currentWeapon.update then
             currentWeapon:update(now)
         end
