@@ -15,6 +15,11 @@ function Crossair:move(x, y)
     self.y += y
 end
 
+function Crossair:resetToCenter()
+    self.x = 400 / 2
+    self.y = 240 / 2
+end
+
 function Crossair:draw()
     local gfx = playdate.graphics
 

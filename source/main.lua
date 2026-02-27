@@ -21,6 +21,7 @@ local enemies = {}
 local gameManager = GameManager()
 
 gameManager:setOnDiceRollCallback(function()
+    Crossair:resetToCenter()
     for _, e in ipairs(enemies) do
         if e and not e.isDead and e.distance and e.distance <= 0.1 then
             e:applyHit(9999)
