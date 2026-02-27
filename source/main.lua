@@ -312,6 +312,11 @@ function playdate.update()
     if gameManager:isGameOver() and currentWeapon and currentWeapon.stopAllSounds then
         currentWeapon:stopAllSounds()
     end
+    
+    -- Stop all weapon sounds when entering rolling phase
+    if gameManager:isRolling() and gameManager.prevState == "running" and currentWeapon and currentWeapon.stopAllSounds then
+        currentWeapon:stopAllSounds()
+    end
 
     -- Handle state transitions via crank button
     if playdate.buttonJustPressed(playdate.kButtonA) then
