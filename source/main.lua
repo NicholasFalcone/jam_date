@@ -202,7 +202,7 @@ function updateEnemies()
 
     -- Then, handle hit detection when firing
     -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
- if currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
+ if gameManager:isRunning() and currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
         -- For minigun, we need to be more careful about timing
         if currentWeapon.weaponType == "Minigun" then
             -- Only process if enough time has passed since last shot
