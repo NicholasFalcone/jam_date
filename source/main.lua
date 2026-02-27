@@ -96,6 +96,7 @@ local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
 local UI = UI()
+UI:setGameManager(gameManager)
 
 local playerRotation = 0
 
