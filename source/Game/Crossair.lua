@@ -8,11 +8,25 @@ function Crossair:init()
     self.hitRadius = 0  -- Default no radius, will be set by weapon type
     self.shotgunReticle = gfx.image.new("Sprites/Crossair_shotgun")
     self.normalReticle = gfx.image.new("Sprites/Crossair")
+    
+    -- Store reticle dimensions for boundary clamping
+    local rw, rh = self.normalReticle:getSize()
+    self.reticleWidth = rw
+    self.reticleHeight = rh
 end
 
 function Crossair:move(x, y)
     self.x += x
     self.y += y
+    
+    -- Clamp to screen boundaries considering reticle size
+    local minX = self.reticleWidth / 2
+    local maxX = 400 - self.reticleWidth / 2
+    local minY = self.reticleHeight / 2
+    local maxY = 240 - self.reticleHeight / 2
+    
+    self.x = math.max(minX, math.min(self.x, maxX))
+    self.y = math.max(minY, math.min(self.y, maxY))
 end
 
 function Crossair:draw()
