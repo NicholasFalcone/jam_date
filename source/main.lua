@@ -37,8 +37,15 @@ local Crossair = Crossair()
 local Input = Input()
 -- Spawn system parameters (configurable)
 local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
-local spawnAngleMin = -15
-local spawnAngleMax = 15
+
+-- lane positions expressed as a fraction of half‑road width.  enemies
+-- always spawn at the horizon centre and then move down one of the
+-- parallel lanes defined by this fraction.  -1 = left edge, +1 = right edge.
+-- the actual horizontal offset at runtime is calculated inside Enemy:draw
+-- using the current road width, so lanes naturally follow the perspective
+-- lines of the road.
+local spawnLaneMin = -1.0
+local spawnLaneMax = 1.0
 
 local spawnN = 2 -- N: number of enemies per spawn (min 1)
 local spawnT = 5 -- T: time between spawns in seconds
@@ -80,12 +87,15 @@ local function clamp(v, a, b)
 end
 
 local function computeSpawnPoints()
+    -- return an array of lane fractions in [-1,1].  fractions at the extremes
+    -- correspond to the left/right road edges; the actual horizontal offset is
+    -- computed by the enemy using the current road width (see Enemy:draw).
     local points = {}
     local count = math.max(1, SpawnPointsAmount)
     for i = 1, count do
         local t = i / (count + 1)
-        local angle = spawnAngleMin + t * (spawnAngleMax - spawnAngleMin)
-        table.insert(points, angle)
+        local lane = spawnLaneMin + t * (spawnLaneMax - spawnLaneMin)
+        table.insert(points, lane)
     end
     return points
 end
@@ -187,8 +197,8 @@ function updateEnemies()
         local toSpawn = math.min(spawnN, #freeIndices)
         for i = 1, toSpawn do
             local idx = freeIndices[i]
-            local angle = spawnPoints[idx]
-            local e = Enemy(enemyStartingHealth, angle, enemySpeed, idx)
+            local lane = spawnPoints[idx]
+            local e = Enemy(enemyStartingHealth, lane, enemySpeed, idx)
             table.insert(enemies, e)
         end
 
