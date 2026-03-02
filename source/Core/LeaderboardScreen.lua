@@ -48,15 +48,8 @@ function LeaderboardScreen:update()
     
     -- Up button can also fetch/refresh server scores if available
     if playdate.buttonJustPressed(playdate.kButtonUp) and not self.isFetching then
-        if self.gameManager and self.gameManager.gameManager then
-            local dataManager = self.gameManager.gameManager.dataManager or 
-                               (self.gameManager.dataManager)
-            
-            -- Try to create/access DataManager
-            if not dataManager and playdate.scoreboards then
-                dataManager = require("Core/DataManager")()
-            end
-            
+        if self.gameManager then
+            local dataManager = self.gameManager.dataManager
             if dataManager and dataManager:isOnlineSyncAvailable() then
                 self:fetchServerScores(dataManager)
                 return  -- Don't process normal up navigation while fetching

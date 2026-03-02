@@ -1,7 +1,5 @@
 class('DataManager').extends()
 
-local json = require("json") -- Playdate includes json library
-
 -- Constants
 local DATA_FOLDER = "jam_date_data"
 local LEADERBOARD_FILE = "leaderboard.json"
@@ -28,51 +26,31 @@ end
 
 -- Ensure data folder exists
 function DataManager:ensureDataFolder()
-    local path = DATA_FOLDER
-    -- Check if folder exists by trying to list it
-    local ok, err = pcall(function()
-        playdate.file.listFiles(path)
-    end)
-    
-    -- If folder doesn't exist, create it by saving a dummy file
-    if not ok then
-        playdate.file.mkdir(DATA_FOLDER)
-    end
+    -- No-op: using playdate.datastore for persistence, no folder needed
 end
 
 -- Load leaderboard from file
 function DataManager:loadLeaderboard()
-    local filePath = DATA_FOLDER .. "/" .. LEADERBOARD_FILE
-    local fileContent = playdate.file.read(filePath)
-    
-    if fileContent then
-        local ok, data = pcall(function()
-            return json.decode(fileContent)
-        end)
-        
-        if ok and data then
+    -- Use playdate.datastore for persistent tables
+    if playdate.datastore and playdate.datastore.read then
+        local data = playdate.datastore.read(LEADERBOARD_FILE)
+        if data and type(data) == "table" then
             self.leaderboard = data
-        else
-            self.leaderboard = {}
+            return
         end
-    else
-        self.leaderboard = {}
     end
+    self.leaderboard = {}
 end
 
 -- Save leaderboard to file
 function DataManager:saveLeaderboard()
-    local filePath = DATA_FOLDER .. "/" .. LEADERBOARD_FILE
-    local ok, jsonStr = pcall(function()
-        return json.encode(self.leaderboard)
-    end)
-    
-    if ok and jsonStr then
-        playdate.file.write(filePath, jsonStr)
-        return true
-    else
-        return false
+    if playdate.datastore and playdate.datastore.write then
+        local ok, err = pcall(function()
+            playdate.datastore.write(self.leaderboard, LEADERBOARD_FILE)
+        end)
+        return ok
     end
+    return false
 end
 
 -- Add a run result to leaderboard

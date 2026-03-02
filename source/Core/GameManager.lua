@@ -46,6 +46,9 @@ function GameManager:init()
 	self.ui = UI()
 	self.ui:setScreen("menu")
 
+	-- Expose DataManager instance on GameManager for other modules
+	self.dataManager = dataManager
+
 	-- GAME OVER UI assets (put in: source/images/ui/)
 	self.gameOverBg = gfx.image.new("images/ui/GAME_OVER_3-dithered")
 	self.gameOverSelector = gfx.image.new("images/ui/Bullet_Revolver_White")
