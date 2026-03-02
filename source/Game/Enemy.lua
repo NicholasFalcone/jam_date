@@ -7,9 +7,23 @@ local audioManager = AudioManager()
 -- Cache for the explosion images so we only load them once
 local explosionFramesCache = nil
 
-function Enemy:init(_health, _angle, _speed, _spawnIndex)
-    self.angle = _angle or math.random(-15, 15)
-    self.distance = 1.0
+function Enemy:init(_health, _lane, _speed, _spawnIndex)
+    -- lane: fraction in [-1, 1] representing relative position between the
+    -- left and right edges of the road.  -1 = left edge, +1 = right edge.  we
+    -- store this and use it to compute the X coordinate dynamically during
+    -- draw/update so enemies always follow the curving road parallels.
+    self.lane = (_lane ~= nil) and _lane or 0
+
+    -- keep the old angle property around in case some legacy code still
+    -- accesses it (e.g. hit calculations based on relAngle).  compute a rough
+    -- equivalent for compatibility, though it isn’t used by the new movement
+    -- logic.
+    self.spawnAngle = self.lane * 40 -- 40° was previous max angle
+    self.angle = self.spawnAngle
+
+    -- start a little forward of the horizon so the sprite isn't
+    -- completely squashed to zero scale and disappears under the road line
+    self.distance = 0.85
     self.isDead = false
     self.isHitted = false
     self.hitTimer = 0  -- Timer per l'effetto hit
@@ -72,10 +86,20 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
     
     local horizonY = 112
     local groundY = 240
-    local relAngle = (self.angle - playerRotation)
-    local ex = 200 + relAngle * 6
+    -- calculate relative angle for fallback checks and any future camera
+    -- rotation logic.  this value does *not* affect the horizontal position
+    -- used below when the crosshair coordinates are available.
+    local relAngle = self.spawnAngle - (playerRotation or 0)
+
+    -- compute horizontal position using lane fraction and road half-width
+    -- at the current depth; this mirrors the calculation in draw().
     local scale = 1.0 - self.distance
-    local ey = horizonY + (scale * scale) * (groundY - horizonY)
+    local sq = scale * scale
+    local topW = 30
+    local botW = 300
+    local w = topW + sq * (botW - topW)
+    local ex = 200 + self.lane * w
+    local ey = horizonY + sq * (groundY - horizonY)
     local size = 10 + scale * 80
     local ey_center = ey - size / 2
     
@@ -141,10 +165,15 @@ function Enemy:draw(playerRotation)
     local horizonY = 112
     local groundY = 240
 
-    local relAngle = (self.angle - (playerRotation or 0))
-    local x = 200 + relAngle * 6
+    -- compute road half‑width at current depth and place enemy on the
+    -- appropriate parallel line according to lane fraction.
     local scale = 1.0 - self.distance
-    local y = horizonY + (scale * scale) * (groundY - horizonY)
+    local sq = scale * scale
+    local topW = 30
+    local botW = 300
+    local w = topW + sq * (botW - topW)
+    local x = 200 + self.lane * w
+    local y = horizonY + sq * (groundY - horizonY)
     local size = 10 + scale * 80
 
     if self.isDead then
