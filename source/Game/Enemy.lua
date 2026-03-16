@@ -61,7 +61,7 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     end
 
     if not self.isDead then
-        self.distance -= 0.005
+        self.distance -= (self.speed or 0.005)
         if self.distance <= self.enemyGoalPosition then
             if gameManager then
                 gameManager:takeDamage(100)

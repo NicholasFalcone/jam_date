@@ -20,6 +20,13 @@ local screenWidth = playdate.display.getWidth()
 local enemies = {}
 local gameManager = GameManager()
 
+-- Camera shake variables
+local cameraShakeX = 0
+local cameraShakeY = 0
+
+local Crossair = Crossair()
+local Input = Input()
+
 gameManager:setOnDiceRollCallback(function()
     Crossair:resetToCenter()
     for _, e in ipairs(enemies) do
@@ -28,13 +35,6 @@ gameManager:setOnDiceRollCallback(function()
         end
     end
 end)
-
--- Camera shake variables
-local cameraShakeX = 0
-local cameraShakeY = 0
-
-local Crossair = Crossair()
-local Input = Input()
 -- Spawn system parameters (configurable)
 local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
 
@@ -44,18 +44,23 @@ local SpawnPointsAmount = 6 -- number of spawn points (horizon divisors)
 -- the actual horizontal offset at runtime is calculated inside Enemy:draw
 -- using the current road width, so lanes naturally follow the perspective
 -- lines of the road.
-local spawnLaneMin = -1.0
-local spawnLaneMax = 1.0
+-- keep the usable enemy lanes narrower than the full road width, otherwise
+-- the outermost enemies end up too close to the screen edge when they reach
+-- the player and become frustrating to hit.
+local spawnLaneMin = -0.65
+local spawnLaneMax = 0.65
 
-local spawnN = 2 -- N: number of enemies per spawn (min 1)
-local spawnT = 5 -- T: time between spawns in seconds
+local spawnNStart = 1
+local spawnNEnd = 5
+local spawnN = spawnNStart -- N: number of enemies per spawn (min 1)
+local spawnTStart = 5
+local spawnTEnd = 1.8
+local spawnT = spawnTStart -- T: time between spawns in seconds
 local spawnMinT = 0.2 -- minimum allowed spawn interval (seconds)
+local difficultyRampTime = 90 -- seconds to reach near-max difficulty
 
--- Scaling parameters
-local N_ScaleTime = 10.0 -- every X seconds increase N
-local N_ScaleValue = 1 -- increase value for N
-local T_ScaleTime = 10 -- every X seconds modify T
-local T_ScaleValue = -0.5 -- change in seconds to add to T each interval (can be negative)
+local enemySpeedMin = 0.0032
+local enemySpeedMax = 0.0105
 
 --- ROAD
 local roadScrollOffset = 0
@@ -64,11 +69,9 @@ local cactusScales = {} -- Store random scales for each cactus position
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
-local lastNScaleTime = playdate.getElapsedTime()
-local lastTScaleTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = 0.007
+local enemySpeed = enemySpeedMin
 local enemyStartingHealth = 100
 
 --- Weapon selection tracking
@@ -118,21 +121,9 @@ function Init()
     -- local sliderOptions = {"1", "3", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"}
     -- local enemyHealthSliderOptions = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
     --- Spawning menu item variables
-    -- menu:addOptionsMenuItem("N_STm:", sliderOptions, N_ScaleTime, function(value)
+    -- menu:addOptionsMenuItem("Diff Time:", sliderOptions, difficultyRampTime, function(value)
     --     local numericValue = tonumber(value)
-    --     N_ScaleTime = numericValue
-    --     end)
-    -- menu:addOptionsMenuItem("N_SVle:",sliderOptions, N_ScaleValue, function(value)
-    --     local numericValue = tonumber(value)
-    --     N_ScaleValue = numericValue
-    --     end)
-    -- menu:addOptionsMenuItem("T_STm:",sliderOptions, T_ScaleTime, function(value)
-    --     local numericValue = tonumber(value)
-    --     T_ScaleTime = numericValue
-    --     end)
-    -- menu:addOptionsMenuItem("T_SVle:",sliderOptions, T_ScaleValue, function(value)
-    --     local numericValue = tonumber(value)
-    --     T_ScaleValue = numericValue
+    --     difficultyRampTime = numericValue
     --     end)
 
     --- Enemy menu item variables
@@ -165,17 +156,14 @@ end
 function updateEnemies()
     local now = playdate.getElapsedTime()
 
-    -- scaling for N
-    if N_ScaleTime > 0 and now - lastNScaleTime >= N_ScaleTime then
-        spawnN = clamp(spawnN + N_ScaleValue, 1, #spawnPoints)
-        lastNScaleTime = now
-    end
+    -- Smooth progression: starts easy and ramps with survival time.
+    local aliveSeconds = (gameManager and gameManager.timeAlive) or 0
+    local progress = clamp(aliveSeconds / difficultyRampTime, 0, 1)
+    local eased = progress * progress
 
-    -- scaling for T
-    if T_ScaleTime > 0 and now - lastTScaleTime >= T_ScaleTime then
-        spawnT = math.max(spawnMinT, spawnT + T_ScaleValue)
-        lastTScaleTime = now
-    end
+    spawnN = clamp(math.floor(spawnNStart + eased * (spawnNEnd - spawnNStart)), 1, #spawnPoints)
+    spawnT = math.max(spawnMinT, spawnTStart + eased * (spawnTEnd - spawnTStart))
+    enemySpeed = math.min(enemySpeedMax, enemySpeedMin + eased * (enemySpeedMax - enemySpeedMin))
 
     -- spawn based on elapsed seconds
     if now - lastSpawnTime >= spawnT then
@@ -286,6 +274,13 @@ function updateEnemies()
             table.remove(enemies, i)
         end
     end
+
+    -- Keep alive enemies aligned with current difficulty speed.
+    for _, e in ipairs(enemies) do
+        if e and not e.isDead then
+            e.speed = enemySpeed
+        end
+    end
     
     -- Check if out of ammo
     if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
@@ -337,10 +332,9 @@ function playdate.update()
             -- Reset spawn manager variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
-            lastNScaleTime = now
-            lastTScaleTime = now
-            spawnN = 2  -- Reset to 2 enemies per spawn
-            spawnT = 5  -- Reset spawn interval
+            spawnN = spawnNStart  -- Start with fewer enemies
+            spawnT = spawnTStart  -- Reset spawn interval
+            enemySpeed = enemySpeedMin
             needsWeaponRoll = false
             
             -- Start with random weapon and random ammo
@@ -378,10 +372,9 @@ function playdate.update()
             -- Reset spawn variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
-            lastNScaleTime = now
-            lastTScaleTime = now
-            spawnN = 2
-            spawnT = 5
+            spawnN = spawnNStart
+            spawnT = spawnTStart
+            enemySpeed = enemySpeedMin
             
             -- Reset weapon to random selection with random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
