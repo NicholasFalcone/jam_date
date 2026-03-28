@@ -105,7 +105,7 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local weaponTypes = {"Minigun", "Revolver", "Shotgun"}
+local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov"}
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
@@ -250,7 +250,7 @@ function updateEnemies()
                 end
                 
                 if #hitEnemies > 0 then
-                    if currentWeapon.weaponType == "Shotgun" then
+                    if currentWeapon.weaponType == "Shotgun" or currentWeapon.weaponType == "Molotov" then
                         for _, e in ipairs(hitEnemies) do
                             e:applyHit(currentWeapon.Damage)
                         end
@@ -346,6 +346,8 @@ function playdate.update()
                 randomAmmo = math.random(10, 16)
             elseif weaponTypes[currentWeaponIndex] == "Revolver" then
                 randomAmmo = math.random(8, 14)
+            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
+                randomAmmo = math.random(4, 8)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
@@ -388,6 +390,8 @@ function playdate.update()
                 randomAmmo = math.random(10, 16)
             elseif weaponTypes[currentWeaponIndex] == "Revolver" then
                 randomAmmo = math.random(8, 14)
+            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
+                randomAmmo = math.random(4, 8)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             

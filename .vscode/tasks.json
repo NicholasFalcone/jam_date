@@ -1,0 +1,48 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Playdate: Build",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/build-playdate.ps1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Playdate: Run Simulator",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "$sdk = if ($env:PLAYDATE_SDK_PATH) { $env:PLAYDATE_SDK_PATH } elseif (Test-Path (Join-Path $env:USERPROFILE 'Documents\\PlaydateSDK')) { Join-Path $env:USERPROFILE 'Documents\\PlaydateSDK' } else { throw 'Playdate SDK not found. Set PLAYDATE_SDK_PATH.' }; & (Join-Path $sdk 'bin\\PlaydateSimulator.exe') (Join-Path $PWD 'jam_date.pdx')"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Playdate: Build And Run",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Playdate: Build",
+                "Playdate: Run Simulator"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

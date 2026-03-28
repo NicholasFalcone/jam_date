@@ -99,11 +99,13 @@ function UI:init()
     self.imgRevolverGun = self:loadImage("images/howto/revolver_gun")
     self.imgMinigunGun  = self:loadImage("images/howto/minigun_gun")
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
+    self.imgMolotovGun  = self:loadImage("images/howto/molotov_gun")
 
     -- HUD bullet sprites
     self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
     self.imgBulletRevolver = self:loadImage("images/ui/Bullet_Revolver")
     self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
+    self.imgBulletMolotov  = self:loadImage("images/ui/Bullet_Molotov")
 
     -- HUD ammo tracking
     self.hudWeaponType = nil
@@ -286,6 +288,7 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     if weaponType == "Minigun" then rowsCap = 24 end
     if weaponType == "Revolver" then rowsCap = 20 end
     if weaponType == "Shotgun"  then rowsCap = 18 end
+    if weaponType == "Molotov"  then rowsCap = 16 end
 
     local rows = math.min(rowsFit, rowsCap)
     if rows < 1 then rows = 1 end
@@ -348,6 +351,7 @@ function UI:drawHud(currentWeapon)
     if weaponType == "Minigun" then iconImg = self.imgMinigunGun end
     if weaponType == "Revolver" then iconImg = self.imgRevolverGun end
     if weaponType == "Shotgun" then iconImg = self.imgShotgunGun end
+    if weaponType == "Molotov" then iconImg = self.imgMolotovGun end
 
     if iconImg then
         local w, h = iconImg:getSize()
@@ -355,12 +359,14 @@ function UI:drawHud(currentWeapon)
         local y = 12
         iconImg:draw(x, y)
     else
-        drawPlaceholderBox(400 - 18 - 48, 12, 48, 24, "WPN")
+        local label = string.sub(string.upper(weaponType), 1, 3)
+        drawPlaceholderBox(400 - 18 - 48, 12, 48, 24, label)
     end
 
     local bulletImg = self.imgBulletMinigun
     if weaponType == "Revolver" then bulletImg = self.imgBulletRevolver end
     if weaponType == "Shotgun" then bulletImg = self.imgBulletShotgun end
+    if weaponType == "Molotov" then bulletImg = self.imgBulletMolotov end
 
     local bulletW, bulletH = 6, 6
     if bulletImg then

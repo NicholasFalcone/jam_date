@@ -40,3 +40,26 @@ Vedi sempio...
 ``
 export PLAYDATE_SDK_PATH=~/SDK/PlaydateSDK-3.0.3 && ~/SDK/PlaydateSDK-3.0.3/bin/pdc source/ jam_date.pdx
 ``
+
+## Windows build command
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\build-playdate.ps1
+```
+
+Lo script prova prima `PLAYDATE_SDK_PATH` e, se non trova nulla, usa `C:\Users\<utente>\Documents\PlaydateSDK`.
+
+## Windows simulator command
+
+```
+$env:PLAYDATE_SDK_PATH = 'C:\Users\<utente>\Documents\PlaydateSDK'
+& "$env:PLAYDATE_SDK_PATH\bin\PlaydateSimulator.exe" ".\jam_date.pdx"
+```
+
+## VS Code tasks
+
+Sono disponibili questi task in `.vscode/tasks.json`:
+
+- `Playdate: Build`
+- `Playdate: Run Simulator`
+- `Playdate: Build And Run`
