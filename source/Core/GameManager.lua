@@ -60,7 +60,8 @@ function GameManager:init()
 	self.weaponResultImages = {
 		Minigun = gfx.image.new("images/rolling_results/Minigun"),
 		Revolver = gfx.image.new("images/rolling_results/Revolver"),
-		Shotgun = gfx.image.new("images/rolling_results/Shotgun")
+		Shotgun = gfx.image.new("images/rolling_results/Shotgun"),
+		Molotov = gfx.image.new("images/rolling_results/Molotov")
 	}
 
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
@@ -321,15 +322,19 @@ function GameManager:calculateRollingResults()
 	local weaponRoll = self.weaponDice.value
 	local prevWeapon = self.rolledWeapon
 	local attempts = 0
-	while prevWeapon and attempts < 10 do
-		local candidate
-		if weaponRoll <= 2 then
-			candidate = "Minigun"
-		elseif weaponRoll <= 4 then
-			candidate = "Revolver"
-		else
-			candidate = "Shotgun"
+	local function weaponFromRoll(roll)
+		if roll <= 2 then
+			return "Minigun"
+		elseif roll <= 4 then
+			return "Revolver"
+		elseif roll == 5 then
+			return "Shotgun"
 		end
+		return "Molotov"
+	end
+
+	while prevWeapon and attempts < 10 do
+		local candidate = weaponFromRoll(weaponRoll)
 		if candidate ~= prevWeapon then
 			break
 		end
@@ -343,19 +348,15 @@ function GameManager:calculateRollingResults()
 		attempts = attempts + 1
 	end
 
-	if weaponRoll <= 2 then
-		self.rolledWeapon = "Minigun"
-	elseif weaponRoll <= 4 then
-		self.rolledWeapon = "Revolver"
-	else
-		self.rolledWeapon = "Shotgun"
-	end
+	self.rolledWeapon = weaponFromRoll(weaponRoll)
 
 	-- Calculate ammo based on final weaponRoll
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		if weaponRoll <= 2 then
 			self.rolledAmmo = self.rolledAmmo + (die.value * 3)
+		elseif self.rolledWeapon == "Molotov" then
+			self.rolledAmmo = self.rolledAmmo + math.ceil(die.value / 2)
 		else
 			self.rolledAmmo = self.rolledAmmo + die.value
 		end
@@ -546,6 +547,8 @@ function GameManager:drawRollingScreen(g)
 		local x = math.floor((400 - imgW) / 2)
 		local y = math.floor((240 - imgH) / 2)
 		weaponImg:draw(x, y)
+	elseif self.rolledWeapon then
+		g.drawTextAligned(self.rolledWeapon, 116, 112, kTextAlignment.center)
 	end
 	
 	-- Draw ammo dice (dots only, no squares) - weapon dice removed
