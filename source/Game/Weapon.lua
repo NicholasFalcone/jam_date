@@ -29,15 +29,15 @@ function Weapon:initByType(t, ammo)
 		self.Minigun_frames = self:loadMinigunFrames()
 		self.Minigun_idleFrameIndex = 1
 		-- Minigun specific params
-		self.MinCrankSpeed = 5 -- minimum crank delta to count as forward shooting
-		self.FireRate_Min = 1 -- initial time between shots (seconds)
+		self.MinCrankSpeed = 4 -- minimum crank delta to count as forward shooting
+		self.FireRate_Min = 0.6 -- initial time between shots (seconds)
 		self.FireRate_Current = self.FireRate_Min
-		self.FireRate_AccelerationSpeed = 0.4-- every X seconds accelerate
+		self.FireRate_AccelerationSpeed = 0.2-- every X seconds accelerate
 		self.FireRate_AccelerationValue = 0.1 -- reduce time between shots by this
 		self.FireRate_DecelerationSpeed = 0.5 -- every X seconds when stopped, decelerate
 		self.FireRate_DecelerationValue = 0.1 -- increase time between shots by this
 		self.FireRate_Max = 0.1 -- cap: minimum time between shots (fastest)
-		self.Damage = 25
+		self.Damage = 20
 		self.isShooting = false
 		self.lastAccelTime = playdate.getElapsedTime()
 		self.lastDecelTime = playdate.getElapsedTime()

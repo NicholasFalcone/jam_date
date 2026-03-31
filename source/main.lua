@@ -57,7 +57,7 @@ local spawnTStart = 5
 local spawnTEnd = 1.8
 local spawnT = spawnTStart -- T: time between spawns in seconds
 local spawnMinT = 0.2 -- minimum allowed spawn interval (seconds)
-local difficultyRampTime = 90 -- seconds to reach near-max difficulty
+local difficultyRampTime = 150 -- seconds to reach near-max difficulty
 
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
@@ -160,12 +160,12 @@ function updateEnemies()
     -- Smooth progression: starts easy and ramps with survival time.
     local aliveSeconds = (gameManager and gameManager.timeAlive) or 0
     local progress = clamp(aliveSeconds / difficultyRampTime, 0, 1)
-    local eased = progress * progress
-
+    local eased = progress
+    local speedProgress = clamp(aliveSeconds / 300, 0, 1)
+    
     spawnN = clamp(math.floor(spawnNStart + eased * (spawnNEnd - spawnNStart)), 1, #spawnPoints)
     spawnT = math.max(spawnMinT, spawnTStart + eased * (spawnTEnd - spawnTStart))
-    enemySpeed = math.min(enemySpeedMax, enemySpeedMin + eased * (enemySpeedMax - enemySpeedMin))
-
+    enemySpeed = math.min(enemySpeedMax, enemySpeedMin + speedProgress * (enemySpeedMax - enemySpeedMin))
     -- spawn based on elapsed seconds
     if now - lastSpawnTime >= spawnT then
         local occupied = {}
