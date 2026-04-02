@@ -1,15 +1,16 @@
 class('UI').extends()
 
 import "Core/AudioManager"
+import "Core/LeaderboardScreen"
 
 local gfx = playdate.graphics
 
 function UI:init()
     -- IMPORTANT: gameplay UI() instances should default to HUD
-    self.screen = "hud" -- "menu" | "howto" | "credits" | "hud" | "hidden"
+    self.screen = "hud" -- "menu" | "howto" | "credits" | "leaderboard" | "hud" | "hidden"
 
     -- Main menu
-    self.menuOptions = { "Play", "How to play", "Credits" }
+    self.menuOptions = { "Play", "Leaderboard", "How to play", "Credits" }
     self.menuIndex = 1
 
     -- How-to pages (order required) - now using full-page images
@@ -113,6 +114,9 @@ function UI:init()
 
     -- Bullet layout cache
     self.bulletPosCache = {}
+    
+    -- Leaderboard
+    self.leaderboardScreen = LeaderboardScreen()
 end
 
 function UI:loadImage(pathNoExt)
@@ -126,6 +130,17 @@ function UI:setScreen(name)
         self.howtoIndex = 1
     elseif name == "credits" then
         self.creditIndex = 1
+    elseif name == "leaderboard" then
+        if self.leaderboardScreen then
+            self.leaderboardScreen:updateLeaderboard()
+        end
+    end
+end
+
+function UI:setGameManager(gameManager)
+    self.gameManager = gameManager
+    if self.leaderboardScreen then
+        self.leaderboardScreen:setGameManager(gameManager)
     end
 end
 
@@ -193,8 +208,9 @@ function UI:update()
 
         if playdate.buttonJustPressed(playdate.kButtonA) then
             if self.menuIndex == 1 then return "play" end
-            if self.menuIndex == 2 then return "howto" end
-            if self.menuIndex == 3 then return "credits" end
+            if self.menuIndex == 2 then return "leaderboard" end
+            if self.menuIndex == 3 then return "howto" end
+            if self.menuIndex == 4 then return "credits" end
         end
 
         return nil
@@ -251,6 +267,19 @@ function UI:update()
                 self.crankAccum = self.crankAccum + self.crankStepDegHowto
                 self:creditsMove(-1)
             end
+        end
+
+        return nil
+    end
+
+    -- LEADERBOARD
+    if self.screen == "leaderboard" then
+        if playdate.buttonJustPressed(playdate.kButtonB) then
+            return "back"
+        end
+
+        if self.leaderboardScreen then
+            self.leaderboardScreen:update()
         end
 
         return nil
@@ -490,6 +519,13 @@ function UI:draw(currentWeapon)
         if showUp then gfx.fillTriangle(200, 6, 192, 18, 208, 18) end
         if showDown then gfx.fillTriangle(200, 234, 192, 222, 208, 222) end
         
+        return
+    end
+
+    if self.screen == "leaderboard" then
+        if self.leaderboardScreen then
+            self.leaderboardScreen:draw(gfx)
+        end
         return
     end
 end

@@ -3,6 +3,7 @@ class('GameManager').extends()
 import "Game/Dice"
 import "Core/AudioManager"
 import "Core/UI"
+import "Core/DataManager"
 
 local gfx = playdate.graphics
 
@@ -22,6 +23,7 @@ local ROLLING_PHASE = {
 }
 
 local audioManager = AudioManager()
+local dataManager = DataManager()
 
 function GameManager:init()
 	self.currentState = GAME_STATE.IDLE
@@ -43,6 +45,9 @@ function GameManager:init()
 	-- UI (menu/howto/credits)
 	self.ui = UI()
 	self.ui:setScreen("menu")
+
+	-- Expose DataManager instance on GameManager for other modules
+	self.dataManager = dataManager
 
 	-- GAME OVER UI assets (put in: source/images/ui/)
 	self.gameOverBg = gfx.image.new("images/ui/GAME_OVER_3-dithered")
@@ -296,6 +301,17 @@ function GameManager:onGameOverEnter()
 	if self.SFX_GameOver then
 		pcall(function() self.SFX_GameOver:play(1) end)
 	end
+	
+	-- Save run result
+	local runResult = {
+		score = self.score,
+		timeAlive = self.timeAlive,
+		enemiesDefeated = self.enemiesDefeated,
+		waveCount = self.waveCount,
+		timestamp = playdate.getSecondsSinceEpoch(),
+		playerName = "Player"
+	}
+	dataManager:addRunResult(runResult)
 end
 
 function GameManager:onPausedEnter()
@@ -383,7 +399,11 @@ function GameManager:drawIdleScreen(g)
 
 	if self.ui then
 		local action = self.ui:update()
-		if action == "howto" then
+		if action == "play" then
+			-- Play button pressed - return to main loop to handle game start
+		elseif action == "leaderboard" then
+			self.ui:setScreen("leaderboard")
+		elseif action == "howto" then
 			self.ui:setScreen("howto")
 		elseif action == "credits" then
 			self.ui:setScreen("credits")
@@ -583,6 +603,27 @@ function GameManager:loadRollingAnimFrames()
 		end
 	end
 	return frames
+end
+
+-- Leaderboard access methods
+function GameManager:getTopScores(limit)
+	return dataManager:getTopScores(limit)
+end
+
+function GameManager:getTopTimeAlive(limit)
+	return dataManager:getTopTimeAlive(limit)
+end
+
+function GameManager:getTopEnemiesDefeated(limit)
+	return dataManager:getTopEnemiesDefeated(limit)
+end
+
+function GameManager:getFullLeaderboard()
+	return dataManager:getFullLeaderboard()
+end
+
+function GameManager:getTotalRuns()
+	return dataManager:getTotalRuns()
 end
 
 return GAME_STATE
