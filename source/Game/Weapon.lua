@@ -106,6 +106,7 @@ function Weapon:initByType(t, ammo)
 		self.maxCooldown = 20
 		self.autoFire = false
 		self.Damage = 150
+		self.Molotov_shakeFrames = self:loadMolotovShakeFrames()
 		self.Molotov_ShakeCountRequired = 6
 		self.Molotov_MinShakeArc = 15
 		self.Molotov_AmmoCost = 1
@@ -871,8 +872,6 @@ function Weapon:drawShotgun(cx, cy)
 end
 
 function Weapon:drawMolotov(cx, cy)
-	local bodyX = cx - 12
-	local bodyY = cy - 28
 	local progress = 0
 	local shakesCompleted = self.Molotov_shakesCompleted or 0
 	local shakeTarget = self.Molotov_ShakeCountRequired or 1
@@ -882,17 +881,39 @@ function Weapon:drawMolotov(cx, cy)
 	end
 	progress = math.min(1, (shakesCompleted + arcProgress) / shakeTarget)
 
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRoundRect(bodyX, bodyY, 24, 34, 6)
-	gfx.fillRect(cx - 5, cy - 38, 10, 10)
-	gfx.setColor(gfx.kColorBlack)
-	gfx.drawRoundRect(bodyX, bodyY, 24, 34, 6)
-	gfx.drawRect(cx - 5, cy - 38, 10, 10)
-	gfx.drawLine(cx - 2, cy - 41, cx + 5, cy - 48)
+	local shakeFrames = self.Molotov_shakeFrames
+	if shakeFrames and #shakeFrames > 0 then
+		local frameIndex = 1
+		if #shakeFrames > 1 then
+			if self.Molotov_lastDir and self.Molotov_lastDir < 0 then
+				frameIndex = 2
+			elseif self.weaponState == "winding" and progress > 0 then
+				frameIndex = ((math.floor(shakesCompleted) % #shakeFrames) + 1)
+			end
+		end
+
+		local frame = shakeFrames[math.max(1, math.min(#shakeFrames, frameIndex))]
+		if frame and frame.drawCentered then
+			frame:drawCentered(cx, cy)
+		end
+	else
+		local bodyX = cx - 12
+		local bodyY = cy - 28
+
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRoundRect(bodyX, bodyY, 24, 34, 6)
+		gfx.fillRect(cx - 5, cy - 38, 10, 10)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.drawRoundRect(bodyX, bodyY, 24, 34, 6)
+		gfx.drawRect(cx - 5, cy - 38, 10, 10)
+		gfx.drawLine(cx - 2, cy - 41, cx + 5, cy - 48)
+	end
 
 	local fillHeight = math.floor(24 * progress)
 	if fillHeight > 0 then
-		gfx.fillRect(bodyX + 5, bodyY + 28 - fillHeight, 14, fillHeight)
+		local barX = cx - 7
+		local barY = cy
+		gfx.fillRect(barX, barY + 28 - fillHeight, 14, fillHeight)
 	end
 
 	local indicatorWidth = 50
@@ -1012,6 +1033,18 @@ function Weapon:loadShotgunShootFrames()
 	local frameNumbers = {13, 14, 15}
 	for _, n in ipairs(frameNumbers) do
 		local img = gfx.image.new(basePath .. tostring(n))
+		if img then
+			table.insert(frames, img)
+		end
+	end
+	return frames
+end
+
+function Weapon:loadMolotovShakeFrames()
+	local frames = {}
+	local basePath = "Sprites/Gun viewmodel/Molotov_shake/Molotov"
+	for i = 1, 2 do
+		local img = gfx.image.new(basePath .. tostring(i))
 		if img then
 			table.insert(frames, img)
 		end
