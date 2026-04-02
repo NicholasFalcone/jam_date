@@ -61,11 +61,13 @@ local difficultyRampTime = 150 -- seconds to reach near-max difficulty
 
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
+local debugManualRoll = true
 
 --- ROAD
 local roadScrollOffset = 0
 local roadSpeed = 1.0
-local cactusScales = {} -- Store random scales for each cactus position
+local roadsidePropStates = {} -- Store random scale and sprite for each roadside prop position
+local roadsidePropImages = nil
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
@@ -105,7 +107,7 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov"}
+local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov", "Bow"}
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
@@ -251,7 +253,7 @@ function updateEnemies()
                 end
                 
                 if #hitEnemies > 0 then
-                    if currentWeapon.weaponType == "Shotgun" or currentWeapon.weaponType == "Molotov" then
+                    if currentWeapon.weaponType == "Shotgun" or currentWeapon.weaponType == "Molotov" or currentWeapon.weaponType == "Bow" then
                         for _, e in ipairs(hitEnemies) do
                             e:applyHit(currentWeapon.Damage)
                         end
@@ -327,7 +329,10 @@ function playdate.update()
 
     -- Handle state transitions via crank button
     if playdate.buttonJustPressed(playdate.kButtonA) then
-        if gameManager:isIdle() then
+        if debugManualRoll and gameManager:isRunning() then
+            needsWeaponRoll = true
+            gameManager:setState("rolling")
+        elseif gameManager:isIdle() then
             -- Reset game state and enemy list before starting
             enemies = {}
             -- Reset spawn manager variables
@@ -349,6 +354,8 @@ function playdate.update()
                 randomAmmo = math.random(8, 14)
             elseif weaponTypes[currentWeaponIndex] == "Molotov" then
                 randomAmmo = math.random(4, 8)
+            elseif weaponTypes[currentWeaponIndex] == "Bow" then
+                randomAmmo = math.random(6, 12)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
@@ -393,6 +400,8 @@ function playdate.update()
                 randomAmmo = math.random(8, 14)
             elseif weaponTypes[currentWeaponIndex] == "Molotov" then
                 randomAmmo = math.random(4, 8)
+            elseif weaponTypes[currentWeaponIndex] == "Bow" then
+                randomAmmo = math.random(6, 12)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
@@ -460,7 +469,7 @@ function drawRoad()
     local botW = 300
     -- gfx.fillPolygon(centerX - topW, horizonY, centerX + topW, horizonY, centerX + botW, groundY, centerX - botW, groundY)
     
-    -- Disegna linee stradali e cactus integrati
+    -- Disegna linee stradali e props integrati
     gfx.setColor(gfx.kColorBlack)
     for i = 0, 30 do
         local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
@@ -469,32 +478,29 @@ function drawRoad()
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
 
-        -- Disegna cactus ogni 10 tiles
+        -- Disegna props ai bordi strada ogni 5 linee
         if i % 5 == 0  and i > 0 then
-            -- Dimensione del cactus basata sulla profondità
-            local cactusHeight = 10 + lineZ * 40
-            local cactusWidth = 3 + lineZ * 8
+            local propHeight = 10 + lineZ * 40
+            local propWidth = 3 + lineZ * 8
             
-            -- Posiziona i cactus sui bordi della strada
-            local leftCactusX = centerX - w - cactusWidth * 2
-            local rightCactusX = centerX + w + cactusWidth * 2
+            -- Posiziona i props sui bordi della strada
+            local leftPropX = centerX - w - propWidth * 2
+            local rightPropX = centerX + w + propWidth * 2
             
-            -- Disegna cactus sinistro con sua random scale
-            if leftCactusX > 0 and leftCactusX < screenWidth then
-                local leftKey = "L" .. i  -- Unique key for left cactus
-                if not cactusScales[leftKey] then
-                    cactusScales[leftKey] = 0.6 + math.random() * 0.4
+            if leftPropX > 0 and leftPropX < screenWidth then
+                local leftKey = "L" .. i
+                if not roadsidePropStates[leftKey] then
+                    roadsidePropStates[leftKey] = createRoadsidePropState()
                 end
-                drawSingleCactus(leftCactusX, y, cactusHeight, cactusScales[leftKey])
+                drawSingleRoadsideProp(leftPropX, y, propHeight, roadsidePropStates[leftKey])
             end
             
-            -- Disegna cactus destro con sua random scale
-            if rightCactusX > 0 and rightCactusX < screenWidth then
-                local rightKey = "R" .. i  -- Unique key for right cactus
-                if not cactusScales[rightKey] then
-                    cactusScales[rightKey] = 0.6 + math.random() * 0.4
+            if rightPropX > 0 and rightPropX < screenWidth then
+                local rightKey = "R" .. i
+                if not roadsidePropStates[rightKey] then
+                    roadsidePropStates[rightKey] = createRoadsidePropState()
                 end
-                drawSingleCactus(rightCactusX, y, cactusHeight, cactusScales[rightKey])
+                drawSingleRoadsideProp(rightPropX, y, propHeight, roadsidePropStates[rightKey])
             end
         end
 
@@ -503,29 +509,60 @@ end
 
 
 
-function drawSingleCactus(x, y, w, randomScale)
-    -- Lazy-load cactus image once
-    if not cactusImage then
-        cactusImage = gfx.image.new("Sprites/Cactus")
+function getRoadsidePropImages()
+    if not roadsidePropImages then
+        roadsidePropImages = {}
+        local propPaths = {
+            "Sprites/Cactus",
+            "Sprites/Prop1",
+            "Sprites/Prop2",
+            "Sprites/Prop3",
+            "Sprites/Prop4",
+            "Sprites/Prop5"
+        }
+
+        for _, path in ipairs(propPaths) do
+            local image = gfx.image.new(path)
+            if image then
+                table.insert(roadsidePropImages, image)
+            end
+        end
     end
 
-    if cactusImage then
-        local imgW, imgH = cactusImage:getSize()
+    return roadsidePropImages
+end
+
+function createRoadsidePropState()
+    local images = getRoadsidePropImages()
+    local image = nil
+    if images and #images > 0 then
+        image = images[math.random(1, #images)]
+    end
+
+    return {
+        scale = 0.6 + math.random() * 0.4,
+        image = image
+    }
+end
+
+function drawSingleRoadsideProp(x, y, w, propState)
+    if propState and propState.image then
+        local image = propState.image
+        local imgW, imgH = image:getSize()
         local scale = 1.0
         if imgW and imgW > 0 then
             -- Map the provided width value `w` to a scale factor.
             -- `w` is a small value (depth-based); multiply by 2 to get a visible size.
             scale = (w * 2) / imgW
-            -- Apply random scale (0.6 to 1.0)
-            scale = scale * (randomScale or 1.0)
+            scale = scale * ((propState and propState.scale) or 1.0)
         end
 
         if scale > 0 then
-            local sw, sh = cactusImage:getSize()
+            local sw, sh = image:getSize()
             local scaledW = sw * scale
             local scaledH = sh * scale
             -- Draw so the bottom of the sprite sits on the given y (ground line)
-            cactusImage:drawScaled(x - scaledW / 2, y - scaledH, scale, scale)
+            image:drawScaled(x - scaledW / 2, y - scaledH, scale, scale)
         end
     end
 end

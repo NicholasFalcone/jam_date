@@ -15,12 +15,19 @@ function Weapon:init(typeName, ammo, crosshair)
 	self.Ammo = ammo
 	self.autoFire = false
 	self.crosshair = crosshair
+	self.hitboxScale = 1
 	self.shakeIntensity = 0  -- Camera shake intensity
 	self.shakeDecay = 0.8    -- How quickly shake decays
 	self:initByType(self.weaponType)
 end
 
 function Weapon:initByType(t, ammo)
+	self.hitboxScale = 1
+	if self.crosshair then
+		self.crosshair.hitRadius = 0
+		self.crosshair.reticleScale = 1
+	end
+
 	if t == "Minigun" then
 		self.lastHitProcessTime = 0
 		self.maxWindUp = 25
@@ -113,6 +120,26 @@ function Weapon:initByType(t, ammo)
 			self.crosshair.hitRadius = self.Molotov_HitRadius
 			self.crosshair.reticleScale = self.Molotov_ReticleScale
 		end
+	elseif t == "Bow" then
+		self.maxWindUp = 0
+		self.maxCooldown = 0
+		self.autoFire = false
+		self.Damage = 90
+		self.Bow_AmmoCost = 1
+		self.Bow_ChargeArc = 180
+		self.Bow_HoldStillDuration = 0.5
+		self.Bow_StillThreshold = 1.25
+		self.Bow_chargeProgress = 0
+		self.Bow_isCharged = false
+		self.Bow_fireTicks = 0
+		self.Bow_lastMovementTime = playdate.getElapsedTime()
+		self.Bow_lastCrankDelta = 0
+		self.Bow_sfxShot = audioManager:loadSample("sounds/revolver_shot")
+		self.hitboxScale = 0.7
+		if self.crosshair then
+			self.crosshair.hitRadius = 0
+			self.crosshair.reticleScale = 0.75
+		end
 	else
 		self.maxWindUp = 0
 		self.maxCooldown = 30
@@ -144,6 +171,8 @@ function Weapon:update(now)
 		self:updateShotgun()
 	elseif self.weaponType == "Molotov" then
 		self:updateMolotov()
+	elseif self.weaponType == "Bow" then
+		self:updateBow(now)
 	else
 		self:updateCooldown()
 	end
@@ -278,6 +307,33 @@ function Weapon:updateMolotov()
 	end
 end
 
+function Weapon:updateBow(now)
+	if self.Bow_fireTicks and self.Bow_fireTicks > 0 then
+		self:setState("firing")
+		self.Bow_fireTicks = self.Bow_fireTicks - 1
+		return
+	elseif self.weaponState == "firing" then
+		self:setState("idle")
+	end
+
+	local stillThreshold = self.Bow_StillThreshold or 1.25
+	local crankDelta = math.abs(self.Bow_lastCrankDelta or 0)
+
+	if self.Bow_isCharged then
+		if crankDelta <= stillThreshold and now - (self.Bow_lastMovementTime or now) >= (self.Bow_HoldStillDuration or 0.5) then
+			self:triggerBowFire()
+		else
+			self:setState("cocked")
+		end
+	elseif (self.Bow_chargeProgress or 0) > 0 then
+		self:setState("winding")
+	else
+		self:setState("idle")
+	end
+
+	self:updateCooldown()
+end
+
 function Weapon:onCrankChange(change)
 	if self.weaponType == "Minigun" then
 		self:onCrankChangeMinigun(change)
@@ -287,6 +343,8 @@ function Weapon:onCrankChange(change)
 		self:onCrankChangeShotgun(change)
 	elseif self.weaponType == "Molotov" then
 		self:onCrankChangeMolotov(change)
+	elseif self.weaponType == "Bow" then
+		self:onCrankChangeBow(change)
 	else
 		self:onCrankChangeDefault(change)
 	end
@@ -455,6 +513,45 @@ function Weapon:onCrankChangeMolotov(change)
 	end
 end
 
+function Weapon:onCrankChangeBow(change)
+	local now = playdate.getElapsedTime()
+	self.Bow_lastCrankDelta = change or 0
+
+	if self.weaponState == "firing" or (self.Bow_fireTicks and self.Bow_fireTicks > 0) then
+		return
+	end
+
+	local threshold = self.Bow_StillThreshold or 1.25
+	if not change or math.abs(change) <= threshold then
+		return
+	end
+
+	self.Bow_lastMovementTime = now
+
+	if self.Bow_isCharged then
+		self:setState("cocked")
+		return
+	end
+
+	if change > threshold then
+		self.Bow_chargeProgress = math.min(self.Bow_ChargeArc or 180, (self.Bow_chargeProgress or 0) + change)
+		if self.Bow_chargeProgress >= (self.Bow_ChargeArc or 180) then
+			self.Bow_isCharged = true
+			self.Bow_chargeProgress = self.Bow_ChargeArc or 180
+			self:setState("cocked")
+		else
+			self:setState("winding")
+		end
+	else
+		self.Bow_chargeProgress = math.max(0, (self.Bow_chargeProgress or 0) - math.abs(change) * 0.5)
+		if self.Bow_chargeProgress <= 0 then
+			self:setState("idle")
+		else
+			self:setState("winding")
+		end
+	end
+end
+
 function Weapon:resetMolotovShakeProgress()
 	self.Molotov_shakesCompleted = 0
 	self.Molotov_currentShakeArc = 0
@@ -466,6 +563,15 @@ function Weapon:triggerMolotovFire()
 	self.Molotov_fireTicks = 10
 	self:startCooldown()
 	self:resetMolotovShakeProgress()
+end
+
+function Weapon:triggerBowFire()
+	self:fire(self.Bow_AmmoCost or 1)
+	self.Bow_fireTicks = 4
+	self.Bow_isCharged = false
+	self.Bow_chargeProgress = 0
+	self.Bow_lastMovementTime = playdate.getElapsedTime()
+	self.Bow_lastCrankDelta = 0
 end
 
 function Weapon:onCrankChangeDefault(change)
@@ -519,6 +625,8 @@ function Weapon:setState(newState)
 			hasTicks = (self.Shotgun_fireTicks and self.Shotgun_fireTicks > 0)
 		elseif self.weaponType == "Molotov" then
 			hasTicks = (self.Molotov_fireTicks and self.Molotov_fireTicks > 0)
+		elseif self.weaponType == "Bow" then
+			hasTicks = (self.Bow_fireTicks and self.Bow_fireTicks > 0)
 		end
 		
 		if hasTicks then return end
@@ -595,6 +703,8 @@ function Weapon:fire(ammoConsumption)
 			self.shakeIntensity = 2.0  -- Medium shake for revolver
 		elseif self.weaponType == "Molotov" then
 			self.shakeIntensity = 2.5
+		elseif self.weaponType == "Bow" then
+			self.shakeIntensity = 1.2
 		-- Minigun shake is handled in updateMinigun, not here
 		end
 	end
@@ -619,6 +729,10 @@ function Weapon:playFireSound()
 	elseif self.weaponType == "Molotov" then
 		if self.Molotov_sfxShot then
 			pcall(function() self.Molotov_sfxShot:play(1) end)
+		end
+	elseif self.weaponType == "Bow" then
+		if self.Bow_sfxShot then
+			pcall(function() self.Bow_sfxShot:play(1) end)
 		end
 	elseif self.weaponType == "Minigun" then
 		-- Add minigun sound here when available
@@ -654,6 +768,8 @@ function Weapon:draw()
 		self:drawShotgun(cx, cy)
 	elseif self.weaponType == "Molotov" then
 		self:drawMolotov(cx, cy)
+	elseif self.weaponType == "Bow" then
+		self:drawBow(cx, cy)
 	else
 		self:drawDefault(cx, cy)
 	end
@@ -789,6 +905,44 @@ function Weapon:drawMolotov(cx, cy)
 
 	if self.weaponState == "firing" then
 		self:drawFlash(cx + 14, cy - 42)
+	end
+end
+
+function Weapon:drawBow(cx, cy)
+	local gripX = cx - 12
+	local gripY = cy - 30
+	local progress = math.min(1, (self.Bow_chargeProgress or 0) / (self.Bow_ChargeArc or 180))
+	if self.Bow_isCharged then progress = 1 end
+	local pull = 8 + math.floor(progress * 20)
+	local topX = gripX - 8
+	local topY = gripY - 18
+	local bottomX = gripX - 8
+	local bottomY = gripY + 22
+	local stringX = gripX + pull
+	local stringY = gripY + 2
+
+	gfx.setColor(gfx.kColorWhite)
+	gfx.setLineWidth(2)
+	gfx.drawLine(gripX, gripY - 4, gripX, gripY + 8)
+	gfx.drawLine(topX, topY, gripX, gripY - 4)
+	gfx.drawLine(gripX, gripY + 8, bottomX, bottomY)
+	gfx.drawLine(topX, topY, stringX, stringY)
+	gfx.drawLine(stringX, stringY, bottomX, bottomY)
+	gfx.drawLine(stringX - 8, stringY, stringX + 16, stringY)
+	gfx.drawLine(stringX + 12, stringY - 4, stringX + 16, stringY)
+	gfx.drawLine(stringX + 12, stringY + 4, stringX + 16, stringY)
+	gfx.setLineWidth(1)
+
+	local indicatorWidth = 50
+	local indicatorX = cx - math.floor(indicatorWidth / 2)
+	local indicatorY = cy + 18
+	gfx.drawRect(indicatorX, indicatorY, indicatorWidth, 6)
+	if progress > 0 then
+		gfx.fillRect(indicatorX + 1, indicatorY + 1, math.floor((indicatorWidth - 2) * progress), 4)
+	end
+
+	if self.weaponState == "firing" then
+		self:drawFlash(stringX + 12, stringY)
 	end
 end
 

@@ -101,12 +101,14 @@ function UI:init()
     self.imgMinigunGun  = self:loadImage("images/howto/minigun_gun")
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
     self.imgMolotovGun  = self:loadImage("images/howto/molotov_gun")
+    self.imgBowGun      = self:loadImage("images/howto/bow_gun")
 
     -- HUD bullet sprites
     self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
     self.imgBulletRevolver = self:loadImage("images/ui/Bullet_Revolver")
     self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
     self.imgBulletMolotov  = self:loadImage("images/ui/Bullet_Molotov")
+    self.imgBulletBow      = self:loadImage("images/ui/Bullet_Bow")
 
     -- HUD ammo tracking
     self.hudWeaponType = nil
@@ -318,6 +320,7 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     if weaponType == "Revolver" then rowsCap = 20 end
     if weaponType == "Shotgun"  then rowsCap = 18 end
     if weaponType == "Molotov"  then rowsCap = 16 end
+    if weaponType == "Bow"      then rowsCap = 20 end
 
     local rows = math.min(rowsFit, rowsCap)
     if rows < 1 then rows = 1 end
@@ -381,6 +384,7 @@ function UI:drawHud(currentWeapon)
     if weaponType == "Revolver" then iconImg = self.imgRevolverGun end
     if weaponType == "Shotgun" then iconImg = self.imgShotgunGun end
     if weaponType == "Molotov" then iconImg = self.imgMolotovGun end
+    if weaponType == "Bow" then iconImg = self.imgBowGun end
 
     if iconImg then
         local w, h = iconImg:getSize()
@@ -396,6 +400,7 @@ function UI:drawHud(currentWeapon)
     if weaponType == "Revolver" then bulletImg = self.imgBulletRevolver end
     if weaponType == "Shotgun" then bulletImg = self.imgBulletShotgun end
     if weaponType == "Molotov" then bulletImg = self.imgBulletMolotov end
+    if weaponType == "Bow" then bulletImg = self.imgBulletBow or self.imgBulletRevolver end
 
     local bulletW, bulletH = 6, 6
     if bulletImg then

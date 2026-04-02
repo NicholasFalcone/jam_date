@@ -4,6 +4,7 @@ local gfx = playdate.graphics
 
 local audioManager = AudioManager()
 
+local enemySpritesCache = nil
 -- Cache for the explosion images so we only load them once
 local explosionFramesCache = nil
 
@@ -34,7 +35,22 @@ function Enemy:init(_health, _lane, _speed, _spawnIndex)
     self.SFX_Death = audioManager:loadSample("sounds/SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
     self.enemyGoalPosition = -0.2
-    self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
+
+    if not enemySpritesCache then
+        enemySpritesCache = {}
+        for i = 1, 3 do
+            local img = gfx.image.new("Sprites/Enemies/Enemy_0" .. tostring(i))
+            if img then
+                table.insert(enemySpritesCache, img)
+            end
+        end
+    end
+
+    if enemySpritesCache and #enemySpritesCache > 0 then
+        self.sprite = enemySpritesCache[math.random(1, #enemySpritesCache)]
+    else
+        self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
+    end
     
     -- Flag to track if this enemy was hit in the current shot
     self.hitThisFrame = false
@@ -119,8 +135,12 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
             return distance <= scaledHitRadius
         else
             -- REVOLVER/MINIGUN: Rectangular hitbox that scales with enemy
-            local hitThresholdX = math.max(12, size * 0.5)
-            local hitThresholdY = math.max(16, size * 0.6)
+            local hitboxScale = 1
+            if weapon and weapon.hitboxScale then
+                hitboxScale = weapon.hitboxScale
+            end
+            local hitThresholdX = math.max(8, size * 0.5 * hitboxScale)
+            local hitThresholdY = math.max(10, size * 0.6 * hitboxScale)
             return dx <= hitThresholdX and dy <= hitThresholdY
         end
     else
