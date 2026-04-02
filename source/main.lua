@@ -363,6 +363,8 @@ function playdate.update()
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
+            Crossair:resetToCenter()
+
             gameManager:setState("running")
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
@@ -409,6 +411,8 @@ function playdate.update()
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
+            Crossair:resetToCenter()
+
             gameManager:setState("idle")
         end
     end
