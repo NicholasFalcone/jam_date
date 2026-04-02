@@ -31,8 +31,16 @@ end
 function LeaderboardScreen:updateLeaderboard()
     if not self.gameManager then return end
     
-    -- Use local leaderboard or server scores if showing
-    local source = self.serverScores or self.gameManager:getFullLeaderboard()
+    local source = nil
+    if self.showingServerScores and self.serverScores and #self.serverScores > 0 then
+        source = self.serverScores
+    elseif self.sortMode == "time" then
+        source = self.gameManager:getTopTimeAlive(50)
+    elseif self.sortMode == "enemies" then
+        source = self.gameManager:getTopEnemiesDefeated(50)
+    else
+        source = self.gameManager:getTopScores(50)
+    end
     self.leaderboard = source
     
     self.page = 1
@@ -131,7 +139,7 @@ function LeaderboardScreen:fetchServerScores(dataManager)
     dataManager:fetchScoresFromServer(function(result, error)
         self.isFetching = false
         
-        if result and result.scores then
+        if result and result.scores and #result.scores > 0 then
             -- Convert server score format to our format
             self.serverScores = {}
             for _, score in ipairs(result.scores) do
@@ -148,7 +156,7 @@ function LeaderboardScreen:fetchServerScores(dataManager)
             self.showingServerScores = true
             self:updateLeaderboard()
         else
-            -- Fall back to local scores
+            -- Fall back to local scores when server data is unavailable or empty.
             self.showingServerScores = false
             self.serverScores = nil
             self:updateLeaderboard()
@@ -210,7 +218,11 @@ function LeaderboardScreen:draw(g)
     local endIdx = math.min(startIdx + maxVisible - 1, #self.leaderboard)
     
     if #self.leaderboard == 0 then
-        g.drawTextAligned("No scores yet", 200, 120, kTextAlignment.center)
+        local emptyText = "No scores yet"
+        if self.showingServerScores then
+            emptyText = "No server scores"
+        end
+        g.drawTextAligned(emptyText, 200, 120, kTextAlignment.center)
     else
         for i = startIdx, endIdx do
             local entry = self.leaderboard[i]
@@ -269,11 +281,27 @@ function LeaderboardScreen:draw(g)
         local pageStr = "Page " .. self.page .. "/" .. maxPages
         g.drawTextAligned(pageStr, 200, 230, kTextAlignment.center)
     else
-        local entriesStr = "Total: " .. totalEntries
+        local entriesStr = "Total runs: " .. tostring((self.gameManager and self.gameManager:getTotalRuns()) or totalEntries)
         if self.showingServerScores then
             entriesStr = "Server Scores"
         end
         g.drawTextAligned(entriesStr, 200, 230, kTextAlignment.center)
+    end
+
+    if not self.showingServerScores and self.gameManager then
+        local bestScore = self.gameManager:getPersonalBestScore() or 0
+        g.drawTextAligned("Best: " .. tostring(bestScore), 390, 18, kTextAlignment.right)
+    end
+
+    if not self.showingServerScores and self.gameManager and self.gameManager.getDataDebugStatus then
+        local debugStatus = self.gameManager:getDataDebugStatus()
+        if debugStatus and debugStatus.lastDebugMessage then
+            local debugText = debugStatus.lastDebugMessage
+            if #debugText > 42 then
+                debugText = debugText:sub(1, 42) .. "..."
+            end
+            g.drawText(debugText, 10, 220)
+        end
     end
 end
 

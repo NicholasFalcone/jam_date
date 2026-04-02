@@ -29,6 +29,8 @@ function Enemy:init(_health, _lane, _speed, _spawnIndex)
     self.isHitted = false
     self.hitTimer = 0  -- Timer per l'effetto hit
     self.deathTimer = 0
+    self.killedByPlayer = false
+    self.scoreAwarded = false
     self.health = _health
     self.speed = _speed or 0.005
     self.spawnIndex = _spawnIndex
@@ -162,6 +164,7 @@ function Enemy:applyHit(dmg)
 		
         if self.health <= 0 then
             self.isDead = true
+            self.killedByPlayer = true
             
             -- Set death timer based on how many explosion frames we have (2 ticks per frame)
             local totalFrames = (explosionFramesCache and #explosionFramesCache > 0) and #explosionFramesCache or 5

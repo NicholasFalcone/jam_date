@@ -271,6 +271,10 @@ function updateEnemies()
     for i = #enemies, 1, -1 do
         local e = enemies[i]
         if e.isDead and e.deathTimer <= 0 then
+            if e.killedByPlayer and not e.scoreAwarded and gameManager and gameManager.addEnemyDefeated then
+                gameManager:addEnemyDefeated()
+                e.scoreAwarded = true
+            end
             e:die()
             table.remove(enemies, i)
         elseif e.distance <= -0.2 then

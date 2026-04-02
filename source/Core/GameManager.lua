@@ -44,6 +44,7 @@ function GameManager:init()
 
 	-- UI (menu/howto/credits)
 	self.ui = UI()
+	self.ui:setGameManager(self)
 	self.ui:setScreen("menu")
 
 	-- Expose DataManager instance on GameManager for other modules
@@ -627,6 +628,17 @@ end
 
 function GameManager:getTotalRuns()
 	return dataManager:getTotalRuns()
+end
+
+function GameManager:getPersonalBestScore()
+	return dataManager:getPersonalBestScore()
+end
+
+function GameManager:getDataDebugStatus()
+	if dataManager and dataManager.getDebugStatus then
+		return dataManager:getDebugStatus()
+	end
+	return nil
 end
 
 return GAME_STATE

@@ -2,24 +2,44 @@ class('DataManager').extends()
 
 -- Constants
 local DATA_FOLDER = "jam_date_data"
-local LEADERBOARD_FILE = "leaderboard.json"
+local LEADERBOARD_STATE_FILE = "leaderboard_state"
+local LEADERBOARD_FILE = "leaderboard"
+local LEADERBOARD_META_FILE = "leaderboard_meta"
+local LEGACY_LEADERBOARD_STATE_FILE = "leaderboard_state.json"
+local LEGACY_LEADERBOARD_FILE = "leaderboard.json"
+local LEGACY_LEADERBOARD_META_FILE = "leaderboard_meta.json"
 local MAX_LEADERBOARD_ENTRIES = 50
 
 -- Scoreboard configuration - these need to match what you create in Panic's Dev Portal
 -- IMPORTANT: Set your game's bundle ID in pdxinfo
-local SCOREBOARD_ID = "highscores"  -- Change this to match your board ID on Panic servers
+local SCOREBOARD_ID = ""  -- Set this to your Panic Dev Portal board ID to enable online sync
 local USE_PLAYDATE_SCOREBOARD = true  -- Set to false to disable online syncing
+
+local function logDataManager(message)
+    print("[DataManager] " .. tostring(message))
+end
+
+local function isScoreboardConfigured()
+    return USE_PLAYDATE_SCOREBOARD
+        and type(SCOREBOARD_ID) == "string"
+        and SCOREBOARD_ID ~= ""
+end
 
 function DataManager:init()
     self.leaderboard = {}
+    self.personalBestScore = 0
+    self.totalRuns = 0
+    self.lastSaveOk = false
+    self.lastSaveError = nil
+    self.lastDebugMessage = "init"
     self.syncInProgress = false
     self.lastSyncTime = 0
     
     self:ensureDataFolder()
-    self:loadLeaderboard()
+    self:loadState()
     
     -- Try to sync with Playdate scoreboards on init
-    if USE_PLAYDATE_SCOREBOARD and playdate.scoreboards then
+    if isScoreboardConfigured() and playdate.scoreboards then
         self:syncLocalToServer()
     end
 end
@@ -29,17 +49,94 @@ function DataManager:ensureDataFolder()
     -- No-op: using playdate.datastore for persistence, no folder needed
 end
 
+local function readDatastoreFile(primaryName, legacyName)
+    if not (playdate.datastore and playdate.datastore.read) then
+        return nil
+    end
+
+    local data = playdate.datastore.read(primaryName)
+    if data ~= nil then
+        return data
+    end
+
+    if legacyName then
+        return playdate.datastore.read(legacyName)
+    end
+
+    return nil
+end
+
+function DataManager:setDebugStatus(message, saveError)
+    self.lastDebugMessage = tostring(message or "")
+    self.lastSaveError = saveError
+    logDataManager(self.lastDebugMessage)
+    if saveError then
+        logDataManager("error: " .. tostring(saveError))
+    end
+end
+
 -- Load leaderboard from file
 function DataManager:loadLeaderboard()
     -- Use playdate.datastore for persistent tables
-    if playdate.datastore and playdate.datastore.read then
-        local data = playdate.datastore.read(LEADERBOARD_FILE)
-        if data and type(data) == "table" then
-            self.leaderboard = data
-            return
-        end
+    local data = readDatastoreFile(LEADERBOARD_FILE, LEGACY_LEADERBOARD_FILE)
+    if data and type(data) == "table" then
+        self.leaderboard = data
+        self:setDebugStatus("loaded legacy leaderboard entries=" .. tostring(#self.leaderboard))
+        return
     end
     self.leaderboard = {}
+end
+
+function DataManager:loadLeaderboardMeta()
+    local data = readDatastoreFile(LEADERBOARD_META_FILE, LEGACY_LEADERBOARD_META_FILE)
+    if data and type(data) == "table" then
+        self.personalBestScore = tonumber(data.personalBestScore) or 0
+        self.totalRuns = tonumber(data.totalRuns) or 0
+        self:setDebugStatus("loaded legacy meta best=" .. tostring(self.personalBestScore) .. " runs=" .. tostring(self.totalRuns))
+        return
+    end
+
+    self.personalBestScore = 0
+    self.totalRuns = #self.leaderboard
+    for _, entry in ipairs(self.leaderboard) do
+        local score = tonumber(entry.score) or 0
+        if score > self.personalBestScore then
+            self.personalBestScore = score
+        end
+    end
+end
+
+function DataManager:loadState()
+    local state = readDatastoreFile(LEADERBOARD_STATE_FILE, LEGACY_LEADERBOARD_STATE_FILE)
+    if state and type(state) == "table" then
+        local entries = state.entries
+        if type(entries) == "table" then
+            self.leaderboard = entries
+        else
+            self.leaderboard = {}
+        end
+        self.personalBestScore = tonumber(state.personalBestScore or state.bestScore) or 0
+        self.totalRuns = tonumber(state.totalRuns or state.runCount) or 0
+
+        if self.totalRuns == 0 then
+            self.totalRuns = #self.leaderboard
+        end
+
+        if self.personalBestScore == 0 then
+            for _, entry in ipairs(self.leaderboard) do
+                local score = tonumber(entry.score) or 0
+                if score > self.personalBestScore then
+                    self.personalBestScore = score
+                end
+            end
+        end
+        self:setDebugStatus("loaded state entries=" .. tostring(#self.leaderboard) .. " best=" .. tostring(self.personalBestScore) .. " runs=" .. tostring(self.totalRuns))
+        return
+    end
+
+    self:loadLeaderboard()
+    self:loadLeaderboardMeta()
+    self:setDebugStatus("no saved state found; fallback entries=" .. tostring(#self.leaderboard) .. " best=" .. tostring(self.personalBestScore) .. " runs=" .. tostring(self.totalRuns))
 end
 
 -- Save leaderboard to file
@@ -48,8 +145,51 @@ function DataManager:saveLeaderboard()
         local ok, err = pcall(function()
             playdate.datastore.write(self.leaderboard, LEADERBOARD_FILE)
         end)
+        if not ok then
+            self:setDebugStatus("saveLeaderboard failed", err)
+        end
         return ok
     end
+    self:setDebugStatus("saveLeaderboard unavailable")
+    return false
+end
+
+function DataManager:saveState()
+    if playdate.datastore and playdate.datastore.write then
+        local ok, err = pcall(function()
+            playdate.datastore.write({
+                entries = self.leaderboard,
+                personalBestScore = self.personalBestScore or 0,
+                totalRuns = self.totalRuns or 0
+            }, LEADERBOARD_STATE_FILE)
+        end)
+        self.lastSaveOk = ok
+        if ok then
+            self:setDebugStatus("saveState ok entries=" .. tostring(#self.leaderboard) .. " best=" .. tostring(self.personalBestScore) .. " runs=" .. tostring(self.totalRuns))
+        else
+            self:setDebugStatus("saveState failed", err)
+        end
+        return ok
+    end
+    self.lastSaveOk = false
+    self:setDebugStatus("saveState unavailable")
+    return false
+end
+
+function DataManager:saveLeaderboardMeta()
+    if playdate.datastore and playdate.datastore.write then
+        local ok, err = pcall(function()
+            playdate.datastore.write({
+                personalBestScore = self.personalBestScore or 0,
+                totalRuns = self.totalRuns or 0
+            }, LEADERBOARD_META_FILE)
+        end)
+        if not ok then
+            self:setDebugStatus("saveLeaderboardMeta failed", err)
+        end
+        return ok
+    end
+    self:setDebugStatus("saveLeaderboardMeta unavailable")
     return false
 end
 
@@ -69,6 +209,11 @@ function DataManager:addRunResult(result)
     if not result.playerName then result.playerName = "Player" end
     if not result.timestamp then result.timestamp = playdate.getSecondsSinceEpoch() end
     
+    self.totalRuns = (self.totalRuns or 0) + 1
+    local score = tonumber(result.score) or 0
+    self.personalBestScore = math.max(self.personalBestScore or 0, score)
+    self:setDebugStatus("addRunResult score=" .. tostring(score) .. " runs=" .. tostring(self.totalRuns))
+
     -- Add to leaderboard
     table.insert(self.leaderboard, result)
     
@@ -82,19 +227,21 @@ function DataManager:addRunResult(result)
         table.remove(self.leaderboard)
     end
     
-    local saved = self:saveLeaderboard()
+    local savedState = self:saveState()
+    local savedLeaderboard = self:saveLeaderboard()
+    local savedMeta = self:saveLeaderboardMeta()
     
     -- Try to post to Playdate scoreboards
-    if USE_PLAYDATE_SCOREBOARD and playdate.scoreboards then
+    if isScoreboardConfigured() and playdate.scoreboards then
         self:postScoreToServer(result.score)
     end
     
-    return saved
+    return savedState or (savedLeaderboard and savedMeta)
 end
 
 -- Post score to Playdate's online scoreboard
 function DataManager:postScoreToServer(score)
-    if not playdate.scoreboards or self.syncInProgress then
+    if not isScoreboardConfigured() or not playdate.scoreboards or self.syncInProgress then
         return
     end
     
@@ -113,7 +260,7 @@ end
 
 -- Fetch scores from Playdate's server and merge with local data
 function DataManager:fetchScoresFromServer(callback)
-    if not playdate.scoreboards then
+    if not isScoreboardConfigured() or not playdate.scoreboards then
         if callback then callback(nil, "Scoreboards not available") end
         return
     end
@@ -140,13 +287,13 @@ end
 
 -- Sync local scores to server (post any new local scores)
 function DataManager:syncLocalToServer()
-    if not playdate.scoreboards or self.syncInProgress then
+    if not isScoreboardConfigured() or not playdate.scoreboards or self.syncInProgress then
         return
     end
     
     -- Post top local score to server
     if #self.leaderboard > 0 then
-        local topScore = self.leaderboard[1].score
+        local topScore = self.personalBestScore or self.leaderboard[1].score
         -- This will queue it if offline or post immediately if online
         self:postScoreToServer(topScore)
     end
@@ -207,7 +354,22 @@ end
 
 -- Get total runs played
 function DataManager:getTotalRuns()
-    return #self.leaderboard
+    return self.totalRuns or #self.leaderboard
+end
+
+function DataManager:getPersonalBestScore()
+    return self.personalBestScore or 0
+end
+
+function DataManager:getDebugStatus()
+    return {
+        lastSaveOk = self.lastSaveOk,
+        lastSaveError = self.lastSaveError,
+        lastDebugMessage = self.lastDebugMessage,
+        entryCount = #self.leaderboard,
+        totalRuns = self.totalRuns or 0,
+        personalBestScore = self.personalBestScore or 0
+    }
 end
 
 -- Format time for display (seconds to MM:SS:CC format)
@@ -223,17 +385,21 @@ end
 -- Clear leaderboard (for testing)
 function DataManager:clearLeaderboard()
     self.leaderboard = {}
+    self.personalBestScore = 0
+    self.totalRuns = 0
+    self:saveState()
     self:saveLeaderboard()
+    self:saveLeaderboardMeta()
 end
 
 -- Check if online sync is enabled and available
 function DataManager:isOnlineSyncAvailable()
-    return USE_PLAYDATE_SCOREBOARD and playdate.scoreboards ~= nil
+    return isScoreboardConfigured() and playdate.scoreboards ~= nil
 end
 
 -- Get personal best from device
 function DataManager:getPersonalBest(callback)
-    if not playdate.scoreboards then
+    if not isScoreboardConfigured() or not playdate.scoreboards then
         if callback then callback(nil) end
         return
     end
