@@ -11,6 +11,7 @@ import "Core/Input"
 import "Core/GameManager"
 import "Game/Crossair"
 import "Game/Enemy"
+import "Game/EnemyTypes"
 import "Game/Weapon"
 import "Game/Dice"
 
@@ -61,6 +62,7 @@ local difficultyRampTime = 150 -- seconds to reach near-max difficulty
 
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
+local enemySpeedReference = 0.005
 local debugManualRoll = true
 
 --- ROAD
@@ -73,8 +75,8 @@ local roadsidePropImages = nil
 local lastSpawnTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = enemySpeedMin
-local enemyStartingHealth = 100
+local enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
+local enemyHealthMultiplier = 1
 
 --- Weapon selection tracking
 local needsWeaponRoll = false
@@ -167,7 +169,7 @@ function updateEnemies()
     
     spawnN = clamp(math.floor(spawnNStart + eased * (spawnNEnd - spawnNStart)), 1, #spawnPoints)
     spawnT = math.max(spawnMinT, spawnTStart + eased * (spawnTEnd - spawnTStart))
-    enemySpeed = math.min(enemySpeedMax, enemySpeedMin + speedProgress * (enemySpeedMax - enemySpeedMin))
+    enemySpeedMultiplier = math.min(enemySpeedMax, enemySpeedMin + speedProgress * (enemySpeedMax - enemySpeedMin)) / enemySpeedReference
     -- spawn based on elapsed seconds
     if now - lastSpawnTime >= spawnT then
         local occupied = {}
@@ -189,7 +191,8 @@ function updateEnemies()
         for i = 1, toSpawn do
             local idx = freeIndices[i]
             local lane = spawnPoints[idx]
-            local e = Enemy(enemyStartingHealth, lane, enemySpeed, idx)
+            local enemyType = EnemyTypes.rollSpawnType()
+            local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end
 
@@ -285,7 +288,7 @@ function updateEnemies()
     -- Keep alive enemies aligned with current difficulty speed.
     for _, e in ipairs(enemies) do
         if e and not e.isDead then
-            e.speed = enemySpeed
+            e:setSpeedMultiplier(enemySpeedMultiplier)
         end
     end
     
@@ -344,7 +347,7 @@ function playdate.update()
             lastSpawnTime = now
             spawnN = spawnNStart  -- Start with fewer enemies
             spawnT = spawnTStart  -- Reset spawn interval
-            enemySpeed = enemySpeedMin
+            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
             needsWeaponRoll = false
             
             -- Start with random weapon and random ammo
@@ -388,7 +391,7 @@ function playdate.update()
             lastSpawnTime = now
             spawnN = spawnNStart
             spawnT = spawnTStart
-            enemySpeed = enemySpeedMin
+            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
             
             -- Reset weapon to random selection with random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
