@@ -63,7 +63,8 @@ function GameManager:init()
 		Revolver = gfx.image.new("images/rolling_results/Revolver"),
 		Shotgun = gfx.image.new("images/rolling_results/Shotgun"),
 		Molotov = gfx.image.new("images/rolling_results/Molotov"),
-		Bow = gfx.image.new("images/rolling_results/Bow")
+		Bow = gfx.image.new("images/rolling_results/Bow"),
+		Flamethrower = gfx.image.new("images/rolling_results/Flamethrower")
 	}
 
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
@@ -327,14 +328,16 @@ function GameManager:calculateRollingResults()
 	local function weaponFromRoll(roll)
 		if roll == 1 then
 			return "Minigun"
-		elseif roll <= 3 then
+		elseif roll == 2 then
 			return "Revolver"
-		elseif roll == 4 then
+		elseif roll == 3 then
 			return "Shotgun"
-		elseif roll == 5 then
+		elseif roll == 4 then
 			return "Molotov"
+		elseif roll == 5 then
+			return "Bow"
 		end
-		return "Bow"
+		return "Flamethrower"
 	end
 
 	while prevWeapon and attempts < 10 do
@@ -359,6 +362,8 @@ function GameManager:calculateRollingResults()
 	for _, die in ipairs(self.ammoDice) do
 		if self.rolledWeapon == "Minigun" then
 			self.rolledAmmo = self.rolledAmmo + (die.value * 3)
+		elseif self.rolledWeapon == "Flamethrower" then
+			self.rolledAmmo = self.rolledAmmo + (die.value * 2)
 		elseif self.rolledWeapon == "Molotov" then
 			self.rolledAmmo = self.rolledAmmo + math.ceil(die.value / 2)
 		else

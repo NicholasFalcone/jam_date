@@ -102,6 +102,7 @@ function UI:init()
     self.imgShotgunGun  = self:loadImage("images/howto/shotgun_gun")
     self.imgMolotovGun  = self:loadImage("images/howto/molotov_gun")
     self.imgBowGun      = self:loadImage("images/howto/bow_gun")
+    self.imgFlamethrowerGun = self:loadImage("images/howto/flamethrower_gun")
 
     -- HUD bullet sprites
     self.imgBulletShotgun  = self:loadImage("images/ui/Bullet_Shotgun")
@@ -109,6 +110,7 @@ function UI:init()
     self.imgBulletMinigun  = self:loadImage("images/ui/Bullet_Minigun")
     self.imgBulletMolotov  = self:loadImage("images/ui/Bullet_Molotov")
     self.imgBulletBow      = self:loadImage("images/ui/Bullet_Bow")
+    self.imgBulletFlamethrower = self:loadImage("images/ui/Bullet_Flamethrower")
 
     -- HUD ammo tracking
     self.hudWeaponType = nil
@@ -321,6 +323,7 @@ function UI:getBulletPositions(weaponType, maxAmmo, bulletW, bulletH)
     if weaponType == "Shotgun"  then rowsCap = 18 end
     if weaponType == "Molotov"  then rowsCap = 16 end
     if weaponType == "Bow"      then rowsCap = 20 end
+    if weaponType == "Flamethrower" then rowsCap = 24 end
 
     local rows = math.min(rowsFit, rowsCap)
     if rows < 1 then rows = 1 end
@@ -385,6 +388,7 @@ function UI:drawHud(currentWeapon)
     if weaponType == "Shotgun" then iconImg = self.imgShotgunGun end
     if weaponType == "Molotov" then iconImg = self.imgMolotovGun end
     if weaponType == "Bow" then iconImg = self.imgBowGun end
+    if weaponType == "Flamethrower" then iconImg = self.imgFlamethrowerGun end
 
     if iconImg then
         local w, h = iconImg:getSize()
@@ -401,6 +405,7 @@ function UI:drawHud(currentWeapon)
     if weaponType == "Shotgun" then bulletImg = self.imgBulletShotgun end
     if weaponType == "Molotov" then bulletImg = self.imgBulletMolotov end
     if weaponType == "Bow" then bulletImg = self.imgBulletBow or self.imgBulletRevolver end
+    if weaponType == "Flamethrower" then bulletImg = self.imgBulletFlamethrower or self.imgBulletMinigun end
 
     local bulletW, bulletH = 6, 6
     if bulletImg then

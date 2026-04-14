@@ -109,7 +109,7 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov", "Bow"}
+local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov", "Bow", "Flamethrower"}
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
@@ -208,8 +208,22 @@ function updateEnemies()
     -- Then, handle hit detection when firing
     -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
  if gameManager:isRunning() and currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
+        if currentWeapon.weaponType == "Flamethrower" then
+            local now = playdate.getElapsedTime()
+            local tickRate = currentWeapon.Flamethrower_FireRate or 0.12
+            if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= tickRate then
+                currentWeapon.lastHitProcessTime = now
+                for _, e in ipairs(enemies) do
+                    e:resetHitTracking()
+                end
+                for _, e in ipairs(enemies) do
+                    if e and not e.isDead then
+                        e:applyHit(currentWeapon.Damage)
+                    end
+                end
+            end
         -- For minigun, we need to be more careful about timing
-        if currentWeapon.weaponType == "Minigun" then
+        elseif currentWeapon.weaponType == "Minigun" then
             -- Only process if enough time has passed since last shot
             local now = playdate.getElapsedTime()
             if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= currentWeapon.FireRate_Current then
@@ -363,6 +377,8 @@ function playdate.update()
                 randomAmmo = math.random(4, 8)
             elseif weaponTypes[currentWeaponIndex] == "Bow" then
                 randomAmmo = math.random(6, 12)
+            elseif weaponTypes[currentWeaponIndex] == "Flamethrower" then
+                randomAmmo = math.random(24, 40)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
@@ -409,6 +425,8 @@ function playdate.update()
                 randomAmmo = math.random(4, 8)
             elseif weaponTypes[currentWeaponIndex] == "Bow" then
                 randomAmmo = math.random(6, 12)
+            elseif weaponTypes[currentWeaponIndex] == "Flamethrower" then
+                randomAmmo = math.random(24, 40)
             end
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
