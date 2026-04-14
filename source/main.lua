@@ -109,7 +109,7 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov", "Bow", "Flamethrower"}
+local weaponTypes = WeaponTypes.getIds()
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
@@ -208,7 +208,8 @@ function updateEnemies()
     -- Then, handle hit detection when firing
     -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
  if gameManager:isRunning() and currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
-        if currentWeapon.weaponType == "Flamethrower" then
+        local hitMode = WeaponTypes.getHitMode(currentWeapon.weaponType)
+        if hitMode == "all_timed" then
             local now = playdate.getElapsedTime()
             local tickRate = currentWeapon.Flamethrower_FireRate or 0.12
             if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= tickRate then
@@ -222,46 +223,37 @@ function updateEnemies()
                     end
                 end
             end
-        -- For minigun, we need to be more careful about timing
-        elseif currentWeapon.weaponType == "Minigun" then
-            -- Only process if enough time has passed since last shot
+        elseif hitMode == "closest_timed" then
             local now = playdate.getElapsedTime()
             if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= currentWeapon.FireRate_Current then
                 currentWeapon.lastHitProcessTime = now
-                
-                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+
                 for _, e in ipairs(enemies) do
                     e:resetHitTracking()
                 end
-                
-                -- Find all enemies that are hit
+
                 local hitEnemies = {}
                 for _, e in ipairs(enemies) do
                     if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
                         table.insert(hitEnemies, e)
                     end
                 end
-                
-                -- Apply hits based on weapon type
+
                 if #hitEnemies > 0 then
-                    -- Sort by distance (closest first)
                     table.sort(hitEnemies, function(a, b)
                         return a.distance < b.distance
                     end)
-                    -- Hit only the closest one
                     hitEnemies[1]:applyHit(currentWeapon.Damage)
                 end
             end
         else
-            -- Original logic for other weapons
             if not currentWeapon.shotProcessed then
                 currentWeapon.shotProcessed = true
-                
-                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+
                 for _, e in ipairs(enemies) do
                     e:resetHitTracking()
                 end
-                
+
                 local hitEnemies = {}
                 for _, e in ipairs(enemies) do
                     if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
@@ -270,7 +262,7 @@ function updateEnemies()
                 end
                 
                 if #hitEnemies > 0 then
-                    if currentWeapon.weaponType == "Shotgun" or currentWeapon.weaponType == "Molotov" or currentWeapon.weaponType == "Bow" then
+                    if hitMode == "all_once" then
                         for _, e in ipairs(hitEnemies) do
                             e:applyHit(currentWeapon.Damage)
                         end
@@ -366,20 +358,7 @@ function playdate.update()
             
             -- Start with random weapon and random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
-            local randomAmmo = 100 -- default
-            if weaponTypes[currentWeaponIndex] == "Minigun" then
-                randomAmmo = math.random(40, 80)
-            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
-                randomAmmo = math.random(10, 16)
-            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
-                randomAmmo = math.random(8, 14)
-            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
-                randomAmmo = math.random(4, 8)
-            elseif weaponTypes[currentWeaponIndex] == "Bow" then
-                randomAmmo = math.random(6, 12)
-            elseif weaponTypes[currentWeaponIndex] == "Flamethrower" then
-                randomAmmo = math.random(24, 40)
-            end
+            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             gameManager:setState("running")
@@ -414,20 +393,7 @@ function playdate.update()
             if currentWeapon and currentWeapon.stopAllSounds then
                 currentWeapon:stopAllSounds()
             end
-            local randomAmmo = 100 -- default
-            if weaponTypes[currentWeaponIndex] == "Minigun" then
-                randomAmmo = math.random(40, 80)
-            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
-                randomAmmo = math.random(10, 16)
-            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
-                randomAmmo = math.random(8, 14)
-            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
-                randomAmmo = math.random(4, 8)
-            elseif weaponTypes[currentWeaponIndex] == "Bow" then
-                randomAmmo = math.random(6, 12)
-            elseif weaponTypes[currentWeaponIndex] == "Flamethrower" then
-                randomAmmo = math.random(24, 40)
-            end
+            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             gameManager:setState("idle")
