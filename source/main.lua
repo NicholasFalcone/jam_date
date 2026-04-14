@@ -306,6 +306,9 @@ function updateEnemies()
 end
 
 function DoAim()
+    if currentWeapon and currentWeapon.weaponType == "Flamethrower" then
+        return
+    end
     local h = Input:HorizontalValue()
     local v = Input:VertiacalValue()
     Crossair:move(h * 5, v * 5) -- move horizontally and verticaly based on input    
@@ -429,7 +432,9 @@ function playdate.update()
         -- draw enemies
         drawEnemies()
         if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
-        Crossair:draw()
+        if not (currentWeapon and currentWeapon.weaponType == "Flamethrower") then
+            Crossair:draw()
+        end
         --playdate.ui.crankIndicator:draw(1,1)
         
         -- Reset draw offset after gameplay drawing

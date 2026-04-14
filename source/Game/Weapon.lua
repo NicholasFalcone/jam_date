@@ -44,6 +44,9 @@ function Weapon:resetBaseState(ammo)
 	if self.crosshair then
 		self.crosshair.hitRadius = 0
 		self.crosshair.reticleScale = 1
+		if self.crosshair.resetToCenter then
+			self.crosshair:resetToCenter()
+		end
 	end
 
 	if ammo ~= nil then
