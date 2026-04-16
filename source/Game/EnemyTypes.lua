@@ -5,17 +5,24 @@ local enemyTypes = {
         id = "scout",
         name = "Scout",
         spritePath = "Sprites/Enemies/Enemy_01",
-        health = 80,
+        health = 100,
         speed = 0.0056,
         spawnWeight = 45,
+        hitboxScale = 0.8, 
+        hitboxScaleX = 1,      
+        hitboxOffsetY = 15,     
     },
     {
         id = "raider",
         name = "Raider",
         spritePath = "Sprites/Enemies/Enemy_02",
-        health = 100,
+        health = 80,
         speed = 0.0050,
         spawnWeight = 35,
+        hitboxScale = 0.45,
+        hitboxScaleX = 2,         
+        hitboxOffsetY = -15,     
+
     },
     {
         id = "brute",
@@ -24,6 +31,11 @@ local enemyTypes = {
         health = 140,
         speed = 0.0042,
         spawnWeight = 20,
+        hitboxScale = 0.7,  
+        hitboxScaleX = 1,         
+     
+    hitboxOffsetY = 20,     
+
     },
 }
 

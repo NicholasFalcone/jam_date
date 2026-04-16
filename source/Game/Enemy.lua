@@ -4,6 +4,9 @@ local gfx = playdate.graphics
 
 local audioManager = AudioManager()
 
+-- Set to true to draw enemy hitboxes for debugging
+local DEBUG_HITBOX = true
+
 local enemySpriteCacheByPath = {}
 -- Cache for the explosion images so we only load them once
 local explosionFramesCache = nil
@@ -125,18 +128,25 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
     local w = topW + sq * (botW - topW)
     local ex = 200 + self.lane * w
     local ey = horizonY + sq * (groundY - horizonY)
-    local size = 10 + scale * 80
-    local ey_center = ey - size / 2
-    
+
+    local typeHitboxScale   = (self.enemyType and self.enemyType.hitboxScale)   or 1.0
+    local typeHitboxScaleX  = (self.enemyType and self.enemyType.hitboxScaleX)  or 1.0
+    local typeHitboxOffsetY = (self.enemyType and self.enemyType.hitboxOffsetY) or 0
+
+    local sw, sh = self.sprite:getSize()
+    local scaledWidth  = sw * scale * typeHitboxScale * typeHitboxScaleX
+    local scaledHeight = sh * scale * typeHitboxScale
+    local ey_center    = ey - (sh * scale) / 2 + typeHitboxOffsetY * scale
+
     if crossX and crossY then
         local dx = math.abs(ex - crossX)
         local dy = math.abs(ey_center - crossY)
-        
+
         local hitRadius = 0
         if weapon.crosshair and weapon.crosshair.hitRadius then
             hitRadius = weapon.crosshair.hitRadius
         end
-        
+
         if hitRadius > 0 then
             -- SHOTGUN: Scaled hit radius with enemy distance
             local scaledHitRadius = hitRadius * (1.0 + scale * 3)
@@ -144,12 +154,12 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
             return distance <= scaledHitRadius
         else
             -- REVOLVER/MINIGUN: Rectangular hitbox that scales with enemy
-            local hitboxScale = 1
+            local weaponHitboxScale = 1
             if weapon and weapon.hitboxScale then
-                hitboxScale = weapon.hitboxScale
+                weaponHitboxScale = weapon.hitboxScale
             end
-            local hitThresholdX = math.max(8, size * 0.5 * hitboxScale)
-            local hitThresholdY = math.max(10, size * 0.6 * hitboxScale)
+            local hitThresholdX = math.max(8,  scaledWidth  * 0.5 * weaponHitboxScale)
+            local hitThresholdY = math.max(10, scaledHeight * 0.5 * weaponHitboxScale)
             return dx <= hitThresholdX and dy <= hitThresholdY
         end
     else
@@ -259,6 +269,47 @@ function Enemy:draw(playerRotation)
             end
         end
     end
+end
+
+function Enemy:drawDebugHitbox()
+    if not DEBUG_HITBOX then return end
+
+    local horizonY = 112
+    local groundY = 240
+
+    local scale = 1.0 - self.distance
+    local sq = scale * scale
+    local topW = 30
+    local botW = 300
+    local w = topW + sq * (botW - topW)
+    local ex = 200 + self.lane * w
+    local ey = horizonY + sq * (groundY - horizonY)
+    local typeHitboxScale   = (self.enemyType and self.enemyType.hitboxScale)   or 1.0
+    local typeHitboxScaleX  = (self.enemyType and self.enemyType.hitboxScaleX)  or 1.0
+    local typeHitboxOffsetY = (self.enemyType and self.enemyType.hitboxOffsetY) or 0
+
+    local sw, sh = self.sprite:getSize()
+    local scaledWidth  = sw * scale * typeHitboxScale * typeHitboxScaleX
+    local scaledHeight = sh * scale * typeHitboxScale
+    local ey_center    = ey - (sh * scale) / 2 + typeHitboxOffsetY * scale
+
+    -- Mirror the hitbox thresholds from checkHit() (no weapon ref here)
+    local hitThresholdX = math.max(8,  scaledWidth  * 0.5)
+    local hitThresholdY = math.max(10, scaledHeight * 0.5)
+
+    local rectX = math.floor(ex - hitThresholdX)
+    local rectY = math.floor(ey_center - hitThresholdY)
+    local rectW = math.floor(hitThresholdX * 2)
+    local rectH = math.floor(hitThresholdY * 2)
+
+    -- Draw in XOR so it's visible on any background
+    gfx.setImageDrawMode(gfx.kDrawModeXOR)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawRect(rectX, rectY, rectW, rectH)
+    -- Small crosshair at the hitbox center
+    gfx.drawLine(ex - 3, ey_center, ex + 3, ey_center)
+    gfx.drawLine(ex, ey_center - 3, ex, ey_center + 3)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function Enemy:setSpeedMultiplier(speedMultiplier)

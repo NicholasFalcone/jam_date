@@ -687,5 +687,6 @@ end
 function drawEnemies()
     for i = #enemies, 1, -1 do
         enemies[i]:draw(playerRotation)
+        enemies[i]:drawDebugHitbox()
     end
 end
