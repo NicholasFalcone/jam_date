@@ -68,8 +68,12 @@ local debugManualRoll = true
 --- ROAD
 local roadScrollOffset = 0
 local roadSpeed = 1.0
+local roadWorldOffset = 0
 local roadsidePropStates = {} -- Store random scale and sprite for each roadside prop position
 local roadsidePropImages = nil
+local roadsidePropSpawnChance = 1 -- chance that a road row spawns props
+local roadsidePropBothSidesChance = 0.3 -- when spawning, chance to draw both sides
+local roadsidePropSingleSideLeftChance = 0.50 -- for single-side rows, chance to pick left
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
@@ -492,7 +496,8 @@ function playdate.update()
         -- Apply camera shake offset
         gfx.setDrawOffset(cameraShakeX, cameraShakeY)
         
-        roadScrollOffset = (roadScrollOffset - roadSpeed) % 100
+        roadWorldOffset += roadSpeed
+        roadScrollOffset = (-roadWorldOffset) % 100
         -- Draw gameplay UI
         drawDesert()
         drawRoad()
@@ -526,6 +531,19 @@ function drawDesert()
     end
 end
 
+local function pruneRoadsidePropStates(minRow, maxRow)
+    if not roadsidePropStates then
+        return
+    end
+
+    for key, _ in pairs(roadsidePropStates) do
+        local rowIndex = tonumber(string.sub(key, 2))
+        if rowIndex and (rowIndex < minRow or rowIndex > maxRow) then
+            roadsidePropStates[key] = nil
+        end
+    end
+end
+
 
 function drawRoad()
     local centerX = 200
@@ -536,7 +554,7 @@ function drawRoad()
     local botW = 300
     -- gfx.fillPolygon(centerX - topW, horizonY, centerX + topW, horizonY, centerX + botW, groundY, centerX - botW, groundY)
     
-    -- Disegna linee stradali e props integrati
+    -- Disegna linee stradali
     gfx.setColor(gfx.kColorBlack)
     for i = 0, 30 do
         local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
@@ -544,33 +562,60 @@ function drawRoad()
         local w = topW + (lineZ * lineZ) * (botW - topW)
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
+    end
 
-        -- Disegna props ai bordi strada ogni 5 linee
-        if i % 5 == 0  and i > 0 then
-            local propHeight = 10 + lineZ * 40
-            local propWidth = 3 + lineZ * 8
-            
-            -- Posiziona i props sui bordi della strada
+    -- Disegna props su righe mondo senza wrapping della profondita'.
+    -- Ogni riga mondo scorre lungo Y in modo continuo e viene sostituita
+    -- solo quando supera il player o quando entra dall'orizzonte.
+    local worldRows = roadWorldOffset / 8
+    local firstRow = math.floor(worldRows / 5) * 5 - 10
+    pruneRoadsidePropStates(firstRow - 20, firstRow + 120)
+
+    for rowIndex = firstRow, firstRow + 80, 5 do
+        local rowPhase = (rowIndex - worldRows) * 0.08
+        if rowPhase > 0 and rowPhase < 1 then
+            local y = horizonY + (rowPhase * rowPhase) * (groundY - horizonY)
+            local w = topW + (rowPhase * rowPhase) * (botW - topW)
+            local propHeight = 10 + rowPhase * 40
+            local propWidth = 3 + rowPhase * 8
+
+            local spawnRoll = math.abs(math.sin(rowIndex * 12.9898 + 78.233))
+            local bothRoll = math.abs(math.sin(rowIndex * 39.3467 + 11.135))
+            local sideRoll = math.abs(math.sin(rowIndex * 73.156 + 52.77))
+
+            local drawLeft = false
+            local drawRight = false
+
+            if spawnRoll < roadsidePropSpawnChance then
+                if bothRoll < roadsidePropBothSidesChance then
+                    drawLeft = true
+                    drawRight = true
+                elseif sideRoll < roadsidePropSingleSideLeftChance then
+                    drawLeft = true
+                else
+                    drawRight = true
+                end
+            end
+
             local leftPropX = centerX - w - propWidth * 2
             local rightPropX = centerX + w + propWidth * 2
-            
-            if leftPropX > 0 and leftPropX < screenWidth then
-                local leftKey = "L" .. i
+
+            if drawLeft and leftPropX > -20 and leftPropX < (screenWidth + 20) then
+                local leftKey = "L" .. rowIndex
                 if not roadsidePropStates[leftKey] then
                     roadsidePropStates[leftKey] = createRoadsidePropState()
                 end
                 drawSingleRoadsideProp(leftPropX, y, propHeight, roadsidePropStates[leftKey])
             end
-            
-            if rightPropX > 0 and rightPropX < screenWidth then
-                local rightKey = "R" .. i
+
+            if drawRight and rightPropX > -20 and rightPropX < (screenWidth + 20) then
+                local rightKey = "R" .. rowIndex
                 if not roadsidePropStates[rightKey] then
                     roadsidePropStates[rightKey] = createRoadsidePropState()
                 end
                 drawSingleRoadsideProp(rightPropX, y, propHeight, roadsidePropStates[rightKey])
             end
         end
-
     end
 end
 
