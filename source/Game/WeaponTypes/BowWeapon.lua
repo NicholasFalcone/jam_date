@@ -24,7 +24,7 @@ local function configure(self)
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
 	self.Bow_lastCrankDelta = 0
 	self.Bow_sfxShot = self.audioManager:loadSample("sounds/revolver_shot")
-	self.hitboxScale = 0.1
+	self.hitboxScale = 1
 
 	if self.crosshair then
 		self.crosshair.hitRadius = 0
