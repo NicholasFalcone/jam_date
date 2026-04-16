@@ -24,6 +24,8 @@ local function configure(self)
 	self.Molotov_AmmoCost = 1
 	self.Molotov_HitRadius = 28
 	self.Molotov_ReticleScale = 1.5
+	self.Molotov_ProjectileSpeedY = 5
+	self.Molotov_ProjectileSpawnY = 220
 	self.Molotov_shakesCompleted = 0
 	self.Molotov_currentShakeArc = 0
 	self.Molotov_lastDir = 0
@@ -177,7 +179,7 @@ WeaponTypes.register({
 	id = "Molotov",
 	startingAmmoMin = 4,
 	startingAmmoMax = 8,
-	hitMode = "all_once",
+	hitMode = "projectile_once",
 	rollAmmo = function(dieValue)
 		return math.ceil(dieValue / 2)
 	end,

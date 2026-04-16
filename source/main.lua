@@ -117,6 +117,66 @@ local UI = UI()
 UI:setGameManager(gameManager)
 
 local playerRotation = 0
+local molotovProjectiles = {}
+
+local function clearMolotovProjectiles()
+    molotovProjectiles = {}
+end
+
+local function queueMolotovProjectile(weapon, targetX, targetY)
+    if not weapon then
+        return
+    end
+
+    local spawnY = weapon.Molotov_ProjectileSpawnY or 220
+    local speedY = weapon.Molotov_ProjectileSpeedY or 5
+    local safeSpeedY = math.max(0.1, speedY)
+    local distanceY = math.abs((targetY or spawnY) - spawnY)
+    local travelFrames = math.max(1, math.floor((distanceY / safeSpeedY) + 0.5))
+
+    table.insert(molotovProjectiles, {
+        framesLeft = travelFrames,
+        targetX = targetX,
+        targetY = targetY,
+        damage = weapon.Damage or 0,
+        hitRadius = weapon.Molotov_HitRadius or 28
+    })
+end
+
+local function processMolotovProjectiles()
+    if #molotovProjectiles == 0 then
+        return
+    end
+
+    for i = #molotovProjectiles, 1, -1 do
+        local projectile = molotovProjectiles[i]
+        projectile.framesLeft = (projectile.framesLeft or 0) - 1
+
+        if projectile.framesLeft <= 0 then
+            for _, e in ipairs(enemies) do
+                e:resetHitTracking()
+            end
+
+            local proxyWeapon = {
+                crosshair = { hitRadius = projectile.hitRadius or 0 },
+                hitboxScale = 1
+            }
+
+            local hitEnemies = {}
+            for _, e in ipairs(enemies) do
+                if e:checkHit(playerRotation, projectile.targetX, projectile.targetY, proxyWeapon) then
+                    table.insert(hitEnemies, e)
+                end
+            end
+
+            for _, e in ipairs(hitEnemies) do
+                e:applyHit(projectile.damage)
+            end
+
+            table.remove(molotovProjectiles, i)
+        end
+    end
+end
 
 function Init()
     local menu = playdate.getSystemMenu()
@@ -205,6 +265,8 @@ function updateEnemies()
         e:update(playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
     end
 
+    processMolotovProjectiles()
+
     -- Then, handle hit detection when firing
     -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
  if gameManager:isRunning() and currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
@@ -245,6 +307,11 @@ function updateEnemies()
                     end)
                     hitEnemies[1]:applyHit(currentWeapon.Damage)
                 end
+            end
+        elseif hitMode == "projectile_once" then
+            if not currentWeapon.shotProcessed then
+                currentWeapon.shotProcessed = true
+                queueMolotovProjectile(currentWeapon, Crossair.x, Crossair.y)
             end
         else
             if not currentWeapon.shotProcessed then
@@ -301,6 +368,7 @@ function updateEnemies()
     -- Check if out of ammo
     if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
         needsWeaponRoll = true
+        clearMolotovProjectiles()
         gameManager:setState("rolling")
     end
 end
@@ -347,10 +415,12 @@ function playdate.update()
     if playdate.buttonJustPressed(playdate.kButtonA) then
         if debugManualRoll and gameManager:isRunning() then
             needsWeaponRoll = true
+            clearMolotovProjectiles()
             gameManager:setState("rolling")
         elseif gameManager:isIdle() then
             -- Reset game state and enemy list before starting
             enemies = {}
+            clearMolotovProjectiles()
             -- Reset spawn manager variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
@@ -383,6 +453,7 @@ function playdate.update()
         elseif gameManager:isGameOver() then
             -- Complete reset when going back from game over
             enemies = {}
+            clearMolotovProjectiles()
             needsWeaponRoll = false
             -- Reset spawn variables
             local now = playdate.getElapsedTime()
