@@ -19,7 +19,10 @@ function UI:init()
         { key="basics2" },
         { key="revolver" },
         { key="minigun" },
-        { key="shotgun" }
+        { key="shotgun" },
+        { key="flamethrower" },
+        { key="bow" },
+        { key="molotov" }
     }
     self.howtoIndex = 1
 
@@ -86,11 +89,14 @@ function UI:init()
     -- ==========================================
 
     -- How-to full page images (put in: source/images/howto/)
-    self.imgBasics1Page  = self:loadImage("images/howto/BASICS_1-dithered")
-    self.imgBasics2Page  = self:loadImage("images/howto/BASICS2_1-dithered")
-    self.imgRevolverPage = self:loadImage("images/howto/REVOLVER_1-dithered")
-    self.imgMinigunPage  = self:loadImage("images/howto/MINIGUN_1-dithered")
-    self.imgShotgunPage  = self:loadImage("images/howto/SHOTGUN_1-dithered")
+    self.imgBasics1Page      = self:loadImage("images/howto/BASICS_1-dithered")
+    self.imgBasics2Page      = self:loadImage("images/howto/BASICS2_1-dithered")
+    self.imgRevolverPage     = self:loadImage("images/howto/REVOLVER_1-dithered")
+    self.imgMinigunPage      = self:loadImage("images/howto/MINIGUN_1-dithered")
+    self.imgShotgunPage      = self:loadImage("images/howto/SHOTGUN_1-dithered")
+    self.imgFlamethrowerPage = self:loadImage("images/howto/FLAMETHROWER_1-dithered")
+    self.imgBowPage          = self:loadImage("images/howto/BOW_1-dithered")
+    self.imgMolotovPage      = self:loadImage("images/howto/MOLOTOV_1-dithered")
 
     -- Credits full page images (put in: source/images/credits/)
     self.imgCredits1Page = self:loadImage("images/credits/CREDITS_2-dithered")
@@ -500,7 +506,10 @@ function UI:draw(currentWeapon)
         elseif page.key == "basics2" then pageImg = self.imgBasics2Page
         elseif page.key == "revolver" then pageImg = self.imgRevolverPage
         elseif page.key == "minigun" then pageImg = self.imgMinigunPage
-        elseif page.key == "shotgun" then pageImg = self.imgShotgunPage end
+        elseif page.key == "shotgun" then pageImg = self.imgShotgunPage
+        elseif page.key == "flamethrower" then pageImg = self.imgFlamethrowerPage
+        elseif page.key == "bow" then pageImg = self.imgBowPage
+        elseif page.key == "molotov" then pageImg = self.imgMolotovPage end
         
         if pageImg then pageImg:draw(0, 0) end
         
