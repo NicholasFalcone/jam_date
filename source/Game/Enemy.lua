@@ -4,16 +4,34 @@ local gfx = playdate.graphics
 
 local audioManager = AudioManager()
 
-local enemySpritesCache = nil
+local enemySpriteCacheByPath = {}
 -- Cache for the explosion images so we only load them once
 local explosionFramesCache = nil
 
-function Enemy:init(_health, _lane, _speed, _spawnIndex)
+local function getCachedEnemySprite(spritePath)
+    if not spritePath then
+        return nil
+    end
+
+    if enemySpriteCacheByPath[spritePath] == nil then
+        enemySpriteCacheByPath[spritePath] = gfx.image.new(spritePath)
+    end
+
+    return enemySpriteCacheByPath[spritePath]
+end
+
+function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultiplier)
     -- lane: fraction in [-1, 1] representing relative position between the
     -- left and right edges of the road.  -1 = left edge, +1 = right edge.  we
     -- store this and use it to compute the X coordinate dynamically during
     -- draw/update so enemies always follow the curving road parallels.
-    self.lane = (_lane ~= nil) and _lane or 0
+    local resolvedType = enemyType or EnemyTypes.getAll()[1]
+    local resolvedHealthMultiplier = healthMultiplier or 1
+
+    self.enemyType = resolvedType
+    self.enemyTypeId = resolvedType.id or "enemy"
+    self.enemyTypeName = resolvedType.name or self.enemyTypeId
+    self.lane = (lane ~= nil) and lane or 0
 
     -- keep the old angle property around in case some legacy code still
     -- accesses it (e.g. hit calculations based on relAngle).  compute a rough
@@ -31,28 +49,17 @@ function Enemy:init(_health, _lane, _speed, _spawnIndex)
     self.deathTimer = 0
     self.killedByPlayer = false
     self.scoreAwarded = false
-    self.health = _health
-    self.speed = _speed or 0.005
-    self.spawnIndex = _spawnIndex
+    self.baseHealth = resolvedType.health or 100
+    self.health = math.max(1, math.floor(self.baseHealth * resolvedHealthMultiplier + 0.5))
+    self.baseSpeed = resolvedType.speed or 0.005
+    self.speedMultiplier = speedMultiplier or 1
+    self.speed = self.baseSpeed * self.speedMultiplier
+    self.spawnIndex = spawnIndex
     self.SFX_Death = audioManager:loadSample("sounds/SFX_EnemyDeath")
     self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
     self.enemyGoalPosition = -0.2
 
-    if not enemySpritesCache then
-        enemySpritesCache = {}
-        for i = 1, 3 do
-            local img = gfx.image.new("Sprites/Enemies/Enemy_0" .. tostring(i))
-            if img then
-                table.insert(enemySpritesCache, img)
-            end
-        end
-    end
-
-    if enemySpritesCache and #enemySpritesCache > 0 then
-        self.sprite = enemySpritesCache[math.random(1, #enemySpritesCache)]
-    else
-        self.sprite = gfx.image.new("Sprites/Enemies/Enemy_01")
-    end
+    self.sprite = getCachedEnemySprite(resolvedType.spritePath) or getCachedEnemySprite("Sprites/Enemies/Enemy_01")
     
     -- Flag to track if this enemy was hit in the current shot
     self.hitThisFrame = false
@@ -252,4 +259,9 @@ function Enemy:draw(playerRotation)
             end
         end
     end
+end
+
+function Enemy:setSpeedMultiplier(speedMultiplier)
+    self.speedMultiplier = speedMultiplier or 1
+    self.speed = self.baseSpeed * self.speedMultiplier
 end

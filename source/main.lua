@@ -11,6 +11,7 @@ import "Core/Input"
 import "Core/GameManager"
 import "Game/Crossair"
 import "Game/Enemy"
+import "Game/EnemyTypes"
 import "Game/Weapon"
 import "Game/Dice"
 
@@ -61,20 +62,25 @@ local difficultyRampTime = 150 -- seconds to reach near-max difficulty
 
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
+local enemySpeedReference = 0.005
 local debugManualRoll = true
 
 --- ROAD
 local roadScrollOffset = 0
 local roadSpeed = 1.0
+local roadWorldOffset = 0
 local roadsidePropStates = {} -- Store random scale and sprite for each roadside prop position
 local roadsidePropImages = nil
+local roadsidePropSpawnChance = 1 -- chance that a road row spawns props
+local roadsidePropBothSidesChance = 0.3 -- when spawning, chance to draw both sides
+local roadsidePropSingleSideLeftChance = 0.50 -- for single-side rows, chance to pick left
 
 -- Internal timers
 local lastSpawnTime = playdate.getElapsedTime()
 
 --- Enemy variables
-local enemySpeed = enemySpeedMin
-local enemyStartingHealth = 100
+local enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
+local enemyHealthMultiplier = 1
 
 --- Weapon selection tracking
 local needsWeaponRoll = false
@@ -107,7 +113,7 @@ end
 
 local spawnPoints = computeSpawnPoints()
 
-local weaponTypes = {"Minigun", "Revolver", "Shotgun", "Molotov", "Bow"}
+local weaponTypes = WeaponTypes.getIds()
 local currentWeaponIndex = 1
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
 
@@ -115,6 +121,66 @@ local UI = UI()
 UI:setGameManager(gameManager)
 
 local playerRotation = 0
+local molotovProjectiles = {}
+
+local function clearMolotovProjectiles()
+    molotovProjectiles = {}
+end
+
+local function queueMolotovProjectile(weapon, targetX, targetY)
+    if not weapon then
+        return
+    end
+
+    local spawnY = weapon.Molotov_ProjectileSpawnY or 220
+    local speedY = weapon.Molotov_ProjectileSpeedY or 5
+    local safeSpeedY = math.max(0.1, speedY)
+    local distanceY = math.abs((targetY or spawnY) - spawnY)
+    local travelFrames = math.max(1, math.floor((distanceY / safeSpeedY) + 0.5))
+
+    table.insert(molotovProjectiles, {
+        framesLeft = travelFrames,
+        targetX = targetX,
+        targetY = targetY,
+        damage = weapon.Damage or 0,
+        hitRadius = weapon.Molotov_HitRadius or 28
+    })
+end
+
+local function processMolotovProjectiles()
+    if #molotovProjectiles == 0 then
+        return
+    end
+
+    for i = #molotovProjectiles, 1, -1 do
+        local projectile = molotovProjectiles[i]
+        projectile.framesLeft = (projectile.framesLeft or 0) - 1
+
+        if projectile.framesLeft <= 0 then
+            for _, e in ipairs(enemies) do
+                e:resetHitTracking()
+            end
+
+            local proxyWeapon = {
+                crosshair = { hitRadius = projectile.hitRadius or 0 },
+                hitboxScale = 1
+            }
+
+            local hitEnemies = {}
+            for _, e in ipairs(enemies) do
+                if e:checkHit(playerRotation, projectile.targetX, projectile.targetY, proxyWeapon) then
+                    table.insert(hitEnemies, e)
+                end
+            end
+
+            for _, e in ipairs(hitEnemies) do
+                e:applyHit(projectile.damage)
+            end
+
+            table.remove(molotovProjectiles, i)
+        end
+    end
+end
 
 function Init()
     local menu = playdate.getSystemMenu()
@@ -167,7 +233,7 @@ function updateEnemies()
     
     spawnN = clamp(math.floor(spawnNStart + eased * (spawnNEnd - spawnNStart)), 1, #spawnPoints)
     spawnT = math.max(spawnMinT, spawnTStart + eased * (spawnTEnd - spawnTStart))
-    enemySpeed = math.min(enemySpeedMax, enemySpeedMin + speedProgress * (enemySpeedMax - enemySpeedMin))
+    enemySpeedMultiplier = math.min(enemySpeedMax, enemySpeedMin + speedProgress * (enemySpeedMax - enemySpeedMin)) / enemySpeedReference
     -- spawn based on elapsed seconds
     if now - lastSpawnTime >= spawnT then
         local occupied = {}
@@ -189,7 +255,8 @@ function updateEnemies()
         for i = 1, toSpawn do
             local idx = freeIndices[i]
             local lane = spawnPoints[idx]
-            local e = Enemy(enemyStartingHealth, lane, enemySpeed, idx)
+            local enemyType = EnemyTypes.rollSpawnType()
+            local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end
 
@@ -202,49 +269,62 @@ function updateEnemies()
         e:update(playerRotation, Crossair.x, Crossair.y, currentWeapon, gameManager)
     end
 
+    processMolotovProjectiles()
+
     -- Then, handle hit detection when firing
     -- Only process one shot per fire (prevents hitting multiple enemies by moving aim)
  if gameManager:isRunning() and currentWeapon.weaponState == "firing" and currentWeapon.lastShotValid then
-        -- For minigun, we need to be more careful about timing
-        if currentWeapon.weaponType == "Minigun" then
-            -- Only process if enough time has passed since last shot
+        local hitMode = WeaponTypes.getHitMode(currentWeapon.weaponType)
+        if hitMode == "all_timed" then
+            local now = playdate.getElapsedTime()
+            local tickRate = currentWeapon.Flamethrower_FireRate or 0.12
+            if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= tickRate then
+                currentWeapon.lastHitProcessTime = now
+                for _, e in ipairs(enemies) do
+                    e:resetHitTracking()
+                end
+                for _, e in ipairs(enemies) do
+                    if e and not e.isDead then
+                        e:applyHit(currentWeapon.Damage)
+                    end
+                end
+            end
+        elseif hitMode == "closest_timed" then
             local now = playdate.getElapsedTime()
             if not currentWeapon.lastHitProcessTime or now - currentWeapon.lastHitProcessTime >= currentWeapon.FireRate_Current then
                 currentWeapon.lastHitProcessTime = now
-                
-                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+
                 for _, e in ipairs(enemies) do
                     e:resetHitTracking()
                 end
-                
-                -- Find all enemies that are hit
+
                 local hitEnemies = {}
                 for _, e in ipairs(enemies) do
                     if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
                         table.insert(hitEnemies, e)
                     end
                 end
-                
-                -- Apply hits based on weapon type
+
                 if #hitEnemies > 0 then
-                    -- Sort by distance (closest first)
                     table.sort(hitEnemies, function(a, b)
                         return a.distance < b.distance
                     end)
-                    -- Hit only the closest one
                     hitEnemies[1]:applyHit(currentWeapon.Damage)
                 end
             end
-        else
-            -- Original logic for other weapons
+        elseif hitMode == "projectile_once" then
             if not currentWeapon.shotProcessed then
                 currentWeapon.shotProcessed = true
-                
-                -- CRITICAL FIX: Reset hit tracking on all enemies before checking hits
+                queueMolotovProjectile(currentWeapon, Crossair.x, Crossair.y)
+            end
+        else
+            if not currentWeapon.shotProcessed then
+                currentWeapon.shotProcessed = true
+
                 for _, e in ipairs(enemies) do
                     e:resetHitTracking()
                 end
-                
+
                 local hitEnemies = {}
                 for _, e in ipairs(enemies) do
                     if e:checkHit(playerRotation, Crossair.x, Crossair.y, currentWeapon) then
@@ -253,7 +333,7 @@ function updateEnemies()
                 end
                 
                 if #hitEnemies > 0 then
-                    if currentWeapon.weaponType == "Shotgun" or currentWeapon.weaponType == "Molotov" or currentWeapon.weaponType == "Bow" then
+                    if hitMode == "all_once" then
                         for _, e in ipairs(hitEnemies) do
                             e:applyHit(currentWeapon.Damage)
                         end
@@ -285,18 +365,22 @@ function updateEnemies()
     -- Keep alive enemies aligned with current difficulty speed.
     for _, e in ipairs(enemies) do
         if e and not e.isDead then
-            e.speed = enemySpeed
+            e:setSpeedMultiplier(enemySpeedMultiplier)
         end
     end
     
     -- Check if out of ammo
     if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
         needsWeaponRoll = true
+        clearMolotovProjectiles()
         gameManager:setState("rolling")
     end
 end
 
 function DoAim()
+    if currentWeapon and currentWeapon.weaponType == "Flamethrower" then
+        return
+    end
     local h = Input:HorizontalValue()
     local v = Input:VertiacalValue()
     Crossair:move(h * 5, v * 5) -- move horizontally and verticaly based on input    
@@ -335,32 +419,23 @@ function playdate.update()
     if playdate.buttonJustPressed(playdate.kButtonA) then
         if debugManualRoll and gameManager:isRunning() then
             needsWeaponRoll = true
+            clearMolotovProjectiles()
             gameManager:setState("rolling")
         elseif gameManager:isIdle() then
             -- Reset game state and enemy list before starting
             enemies = {}
+            clearMolotovProjectiles()
             -- Reset spawn manager variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
             spawnN = spawnNStart  -- Start with fewer enemies
             spawnT = spawnTStart  -- Reset spawn interval
-            enemySpeed = enemySpeedMin
+            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
             needsWeaponRoll = false
             
             -- Start with random weapon and random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
-            local randomAmmo = 100 -- default
-            if weaponTypes[currentWeaponIndex] == "Minigun" then
-                randomAmmo = math.random(40, 80)
-            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
-                randomAmmo = math.random(10, 16)
-            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
-                randomAmmo = math.random(8, 14)
-            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
-                randomAmmo = math.random(4, 8)
-            elseif weaponTypes[currentWeaponIndex] == "Bow" then
-                randomAmmo = math.random(6, 12)
-            end
+            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             Crossair:resetToCenter()
@@ -384,31 +459,21 @@ function playdate.update()
         elseif gameManager:isGameOver() then
             -- Complete reset when going back from game over
             enemies = {}
+            clearMolotovProjectiles()
             needsWeaponRoll = false
             -- Reset spawn variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
             spawnN = spawnNStart
             spawnT = spawnTStart
-            enemySpeed = enemySpeedMin
+            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
             
             -- Reset weapon to random selection with random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
             if currentWeapon and currentWeapon.stopAllSounds then
                 currentWeapon:stopAllSounds()
             end
-            local randomAmmo = 100 -- default
-            if weaponTypes[currentWeaponIndex] == "Minigun" then
-                randomAmmo = math.random(40, 80)
-            elseif weaponTypes[currentWeaponIndex] == "Shotgun" then
-                randomAmmo = math.random(10, 16)
-            elseif weaponTypes[currentWeaponIndex] == "Revolver" then
-                randomAmmo = math.random(8, 14)
-            elseif weaponTypes[currentWeaponIndex] == "Molotov" then
-                randomAmmo = math.random(4, 8)
-            elseif weaponTypes[currentWeaponIndex] == "Bow" then
-                randomAmmo = math.random(6, 12)
-            end
+            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
             Crossair:resetToCenter()
@@ -435,7 +500,8 @@ function playdate.update()
         -- Apply camera shake offset
         gfx.setDrawOffset(cameraShakeX, cameraShakeY)
         
-        roadScrollOffset = (roadScrollOffset - roadSpeed) % 100
+        roadWorldOffset += roadSpeed
+        roadScrollOffset = (-roadWorldOffset) % 100
         -- Draw gameplay UI
         drawDesert()
         drawRoad()
@@ -446,7 +512,9 @@ function playdate.update()
         -- draw enemies
         drawEnemies()
         if currentWeapon and currentWeapon.draw then currentWeapon:draw() end
-        Crossair:draw()
+        if not (currentWeapon and currentWeapon.weaponType == "Flamethrower") then
+            Crossair:draw()
+        end
         --playdate.ui.crankIndicator:draw(1,1)
         
         -- Reset draw offset after gameplay drawing
@@ -467,6 +535,19 @@ function drawDesert()
     end
 end
 
+local function pruneRoadsidePropStates(minRow, maxRow)
+    if not roadsidePropStates then
+        return
+    end
+
+    for key, _ in pairs(roadsidePropStates) do
+        local rowIndex = tonumber(string.sub(key, 2))
+        if rowIndex and (rowIndex < minRow or rowIndex > maxRow) then
+            roadsidePropStates[key] = nil
+        end
+    end
+end
+
 
 function drawRoad()
     local centerX = 200
@@ -477,7 +558,7 @@ function drawRoad()
     local botW = 300
     -- gfx.fillPolygon(centerX - topW, horizonY, centerX + topW, horizonY, centerX + botW, groundY, centerX - botW, groundY)
     
-    -- Disegna linee stradali e props integrati
+    -- Disegna linee stradali
     gfx.setColor(gfx.kColorBlack)
     for i = 0, 30 do
         local lineZ = (i * 0.08 + (roadScrollOffset / 100)) % 1.0
@@ -485,33 +566,60 @@ function drawRoad()
         local w = topW + (lineZ * lineZ) * (botW - topW)
         -- Disegna linea stradale
         gfx.drawLine(centerX - w, y, centerX + w, y)
+    end
 
-        -- Disegna props ai bordi strada ogni 5 linee
-        if i % 5 == 0  and i > 0 then
-            local propHeight = 10 + lineZ * 40
-            local propWidth = 3 + lineZ * 8
-            
-            -- Posiziona i props sui bordi della strada
+    -- Disegna props su righe mondo senza wrapping della profondita'.
+    -- Ogni riga mondo scorre lungo Y in modo continuo e viene sostituita
+    -- solo quando supera il player o quando entra dall'orizzonte.
+    local worldRows = roadWorldOffset / 8
+    local firstRow = math.floor(worldRows / 5) * 5 - 10
+    pruneRoadsidePropStates(firstRow - 20, firstRow + 120)
+
+    for rowIndex = firstRow, firstRow + 80, 5 do
+        local rowPhase = (rowIndex - worldRows) * 0.08
+        if rowPhase > 0 and rowPhase < 1 then
+            local y = horizonY + (rowPhase * rowPhase) * (groundY - horizonY)
+            local w = topW + (rowPhase * rowPhase) * (botW - topW)
+            local propHeight = 10 + rowPhase * 40
+            local propWidth = 3 + rowPhase * 8
+
+            local spawnRoll = math.abs(math.sin(rowIndex * 12.9898 + 78.233))
+            local bothRoll = math.abs(math.sin(rowIndex * 39.3467 + 11.135))
+            local sideRoll = math.abs(math.sin(rowIndex * 73.156 + 52.77))
+
+            local drawLeft = false
+            local drawRight = false
+
+            if spawnRoll < roadsidePropSpawnChance then
+                if bothRoll < roadsidePropBothSidesChance then
+                    drawLeft = true
+                    drawRight = true
+                elseif sideRoll < roadsidePropSingleSideLeftChance then
+                    drawLeft = true
+                else
+                    drawRight = true
+                end
+            end
+
             local leftPropX = centerX - w - propWidth * 2
             local rightPropX = centerX + w + propWidth * 2
-            
-            if leftPropX > 0 and leftPropX < screenWidth then
-                local leftKey = "L" .. i
+
+            if drawLeft and leftPropX > -20 and leftPropX < (screenWidth + 20) then
+                local leftKey = "L" .. rowIndex
                 if not roadsidePropStates[leftKey] then
                     roadsidePropStates[leftKey] = createRoadsidePropState()
                 end
                 drawSingleRoadsideProp(leftPropX, y, propHeight, roadsidePropStates[leftKey])
             end
-            
-            if rightPropX > 0 and rightPropX < screenWidth then
-                local rightKey = "R" .. i
+
+            if drawRight and rightPropX > -20 and rightPropX < (screenWidth + 20) then
+                local rightKey = "R" .. rowIndex
                 if not roadsidePropStates[rightKey] then
                     roadsidePropStates[rightKey] = createRoadsidePropState()
                 end
                 drawSingleRoadsideProp(rightPropX, y, propHeight, roadsidePropStates[rightKey])
             end
         end
-
     end
 end
 

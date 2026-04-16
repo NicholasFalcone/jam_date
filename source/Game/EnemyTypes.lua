@@ -1,0 +1,66 @@
+EnemyTypes = {}
+
+local enemyTypes = {
+    {
+        id = "scout",
+        name = "Scout",
+        spritePath = "Sprites/Enemies/Enemy_01",
+        health = 80,
+        speed = 0.0056,
+        spawnWeight = 45,
+    },
+    {
+        id = "raider",
+        name = "Raider",
+        spritePath = "Sprites/Enemies/Enemy_02",
+        health = 100,
+        speed = 0.0050,
+        spawnWeight = 35,
+    },
+    {
+        id = "brute",
+        name = "Brute",
+        spritePath = "Sprites/Enemies/Enemy_03",
+        health = 150,
+        speed = 0.0042,
+        spawnWeight = 20,
+    },
+}
+
+local enemyTypesById = {}
+
+for _, enemyType in ipairs(enemyTypes) do
+    enemyTypesById[enemyType.id] = enemyType
+end
+
+function EnemyTypes.getAll()
+    return enemyTypes
+end
+
+function EnemyTypes.getById(id)
+    return enemyTypesById[id]
+end
+
+function EnemyTypes.rollSpawnType()
+    local totalWeight = 0
+
+    for _, enemyType in ipairs(enemyTypes) do
+        totalWeight += math.max(0, enemyType.spawnWeight or 0)
+    end
+
+    if totalWeight <= 0 then
+        return enemyTypes[1]
+    end
+
+    local roll = math.random() * totalWeight
+    local cumulativeWeight = 0
+
+    for _, enemyType in ipairs(enemyTypes) do
+        cumulativeWeight += math.max(0, enemyType.spawnWeight or 0)
+        if roll <= cumulativeWeight then
+            return enemyType
+        end
+    end
+
+    return enemyTypes[#enemyTypes]
+end
