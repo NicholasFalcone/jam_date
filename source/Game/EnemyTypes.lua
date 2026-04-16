@@ -21,7 +21,7 @@ local enemyTypes = {
         id = "brute",
         name = "Brute",
         spritePath = "Sprites/Enemies/Enemy_03",
-        health = 150,
+        health = 140,
         speed = 0.0042,
         spawnWeight = 20,
     },

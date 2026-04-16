@@ -17,7 +17,7 @@ local function configure(self)
 	self.maxWindUp = 0
 	self.maxCooldown = 20
 	self.autoFire = false
-	self.Damage = 150
+	self.Damage = 200
 	self.Molotov_shakeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_shake/Molotov", {1, 2})
 	self.Molotov_ShakeCountRequired = 6
 	self.Molotov_MinShakeArc = 15

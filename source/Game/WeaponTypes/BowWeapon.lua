@@ -13,10 +13,10 @@ local function configure(self)
 	self.maxWindUp = 0
 	self.maxCooldown = 0
 	self.autoFire = false
-	self.Damage = 90
+	self.Damage = 200
 	self.Bow_AmmoCost = 1
-	self.Bow_ChargeArc = 180
-	self.Bow_HoldStillDuration = 0.5
+	self.Bow_ChargeArc = 160
+	self.Bow_HoldStillDuration = 0.3
 	self.Bow_StillThreshold = 1.25
 	self.Bow_chargeProgress = 0
 	self.Bow_isCharged = false
@@ -24,11 +24,11 @@ local function configure(self)
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
 	self.Bow_lastCrankDelta = 0
 	self.Bow_sfxShot = self.audioManager:loadSample("sounds/revolver_shot")
-	self.hitboxScale = 0.7
+	self.hitboxScale = 0.1
 
 	if self.crosshair then
 		self.crosshair.hitRadius = 0
-		self.crosshair.reticleScale = 0.75
+		self.crosshair.reticleScale = 0.5
 	end
 end
 
