@@ -16,6 +16,10 @@ local enemyTypes = {
         health = 100,
         speed = 0.0050,
         spawnWeight = 35,
+        -- Oscillazione orizzontale mentre avanza
+        oscillationEnabled = true,
+        oscillationAmplitude = 0.15,  -- Ampiezza dell'oscillazione (frazione della larghezza della corsia)
+        oscillationFrequency = 2.5,   -- Velocità dell'oscillazione
     },
     {
         id = "brute",

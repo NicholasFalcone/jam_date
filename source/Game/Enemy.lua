@@ -64,6 +64,13 @@ function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultipli
     -- Flag to track if this enemy was hit in the current shot
     self.hitThisFrame = false
 
+    -- Oscillazione orizzontale (per nemici come il raider)
+    self.oscillationEnabled = resolvedType.oscillationEnabled or false
+    self.oscillationAmplitude = resolvedType.oscillationAmplitude or 0
+    self.oscillationFrequency = resolvedType.oscillationFrequency or 1
+    self.oscillationTime = math.random() * math.pi * 2  -- Inizia da un punto casuale nel ciclo
+    self.oscillationOffset = 0
+
     -- Load explosion sequence (Frames 1 to 5)
     if not explosionFramesCache then
         explosionFramesCache = {}
@@ -87,6 +94,13 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
 
     if not self.isDead then
         self.distance -= (self.speed or 0.005)
+        
+        -- Aggiorna l'oscillazione se abilitata
+        if self.oscillationEnabled then
+            self.oscillationTime += self.oscillationFrequency * 0.05
+            self.oscillationOffset = math.sin(self.oscillationTime) * self.oscillationAmplitude
+        end
+        
         if self.distance <= self.enemyGoalPosition then
             if gameManager then
                 gameManager:takeDamage(100)
@@ -123,7 +137,11 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
     local topW = 30
     local botW = 300
     local w = topW + sq * (botW - topW)
-    local ex = 200 + self.lane * w
+    
+    -- Applica oscillazione alla posizione orizzontale (stesso calcolo del draw)
+    local effectiveLane = self.lane + (self.oscillationOffset or 0)
+    local ex = 200 + effectiveLane * w
+    
     local ey = horizonY + sq * (groundY - horizonY)
     local size = 10 + scale * 80
     local ey_center = ey - size / 2
@@ -202,7 +220,11 @@ function Enemy:draw(playerRotation)
     local topW = 30
     local botW = 300
     local w = topW + sq * (botW - topW)
-    local x = 200 + self.lane * w
+    
+    -- Applica oscillazione alla posizione orizzontale
+    local effectiveLane = self.lane + (self.oscillationOffset or 0)
+    local x = 200 + effectiveLane * w
+    
     local y = horizonY + sq * (groundY - horizonY)
     local size = 10 + scale * 80
 
