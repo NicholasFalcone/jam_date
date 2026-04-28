@@ -31,7 +31,7 @@ local function configure(self)
 	self.maxWindUp = 0
 	self.maxCooldown = 0
 	self.autoFire = true
-	self.Damage = 5
+	self.Damage = 10
 	self.lastHitProcessTime = 0
 	self.lastShotTime = playdate.getElapsedTime()
 	self.Flamethrower_AmmoCost = 1

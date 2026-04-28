@@ -18,7 +18,7 @@ local function configure(self)
 	self.Revolver_shootFrames = self:loadFrameSequence("Sprites/Gun viewmodel/REV_Shoot/REV_Shoot - ", {9, 10, 11})
 	self.Revolver_idleFrameIndex = 1
 	self.Damage = 100
-	self.Revolver_ArcSize = 120
+	self.Revolver_ArcSize = 90
 	self.Revolver_stage = 0
 	self.Revolver_accum = 0
 	self.Revolver_lastDir = 0

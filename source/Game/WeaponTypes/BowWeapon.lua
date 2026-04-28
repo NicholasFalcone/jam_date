@@ -1,5 +1,16 @@
 local gfx = playdate.graphics
 
+-- Maps chargeProgress → crosshair bow frame 1-9
+local function syncBowFrame(self)
+	if not self.crosshair then return end
+	if self.Bow_isCharged then
+		self.crosshair.bowAnimFrame = 11
+	else
+		local ratio = math.min(1, (self.Bow_chargeProgress or 0) / (self.Bow_ChargeArc or 160))
+		self.crosshair.bowAnimFrame = math.max(1, math.min(11, math.floor(ratio * 10) + 1))
+	end
+end
+
 local function triggerFire(self)
 	self:fire(self.Bow_AmmoCost or 1)
 	self.Bow_fireTicks = 4
@@ -7,16 +18,20 @@ local function triggerFire(self)
 	self.Bow_chargeProgress = 0
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
 	self.Bow_lastCrankDelta = 0
+	-- Reset crosshair animation back to frame 1
+	if self.crosshair then
+		self.crosshair.bowAnimFrame = 1
+	end
 end
 
 local function configure(self)
 	self.maxWindUp = 0
 	self.maxCooldown = 0
 	self.autoFire = false
-	self.Damage = 90
+	self.Damage = 200
 	self.Bow_AmmoCost = 1
-	self.Bow_ChargeArc = 180
-	self.Bow_HoldStillDuration = 0.5
+	self.Bow_ChargeArc = 160
+	self.Bow_HoldStillDuration = 0.3
 	self.Bow_StillThreshold = 1.25
 	self.Bow_chargeProgress = 0
 	self.Bow_isCharged = false
@@ -24,11 +39,13 @@ local function configure(self)
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
 	self.Bow_lastCrankDelta = 0
 	self.Bow_sfxShot = self.audioManager:loadSample("sounds/revolver_shot")
-	self.hitboxScale = 0.7
+	self.hitboxScale = 1
 
 	if self.crosshair then
 		self.crosshair.hitRadius = 0
-		self.crosshair.reticleScale = 0.75
+		self.crosshair.reticleScale = 0.5
+		self.crosshair.bowActive = true
+		self.crosshair.bowAnimFrame = 1
 	end
 end
 
@@ -96,6 +113,7 @@ local function onCrankChange(self, change)
 			self:setState("winding")
 		end
 	end
+	syncBowFrame(self)
 end
 
 local function draw(self, cx, cy)
@@ -154,6 +172,14 @@ local function hasActiveFireState(self)
 	return self.Bow_fireTicks and self.Bow_fireTicks > 0
 end
 
+local function stopAllSounds(self)
+	-- Deactivate bow reticle when switching away from this weapon
+	if self.crosshair then
+		self.crosshair.bowActive = false
+		self.crosshair.bowAnimFrame = 1
+	end
+end
+
 WeaponTypes.register({
 	id = "Bow",
 	startingAmmoMin = 6,
@@ -166,4 +192,5 @@ WeaponTypes.register({
 	playFireSound = playFireSound,
 	applyFireFeedback = applyFireFeedback,
 	hasActiveFireState = hasActiveFireState,
+	stopAllSounds = stopAllSounds,
 })

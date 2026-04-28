@@ -5,7 +5,7 @@ local function configure(self)
 	self.Shotgun_reloadFrames = self:loadFrameSequence("Sprites/Gun viewmodel/SGN_Reload/SGN_Reload - ", {16, 17, 18, 19, 20, 21})
 	self.Shotgun_shootFrames = self:loadFrameSequence("Sprites/Gun viewmodel/SGN_Shoot/SGN_Shoot - ", {13, 14, 15})
 	self.Shotgun_idleFrameIndex = 1
-	self.Damage = 100
+	self.Damage = 200
 	self.Shotgun_ArcSize = 360
 	self.Shotgun_accum = 0
 	self.Shotgun_lastDir = 0

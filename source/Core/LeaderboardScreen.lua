@@ -39,24 +39,9 @@ local function getServerTimeAlive(score)
     return rawValue / 100
 end
 
-local function drawButtonHint(g, button, label, x, y, alignRight)
-    local radius = 11
-
-    if alignRight then
-        local textWidth = gfx.getTextSize(label)
-        g.drawText(label, x - textWidth - 8 - (radius * 2), y - 9)
-        g.fillCircleAtPoint(x - radius, y, radius)
-        g.setColor(g.kColorWhite)
-        g.drawTextAligned(button, x - radius, y - 7, kTextAlignment.center)
-        g.setColor(g.kColorBlack)
-        return
-    end
-
-    g.fillCircleAtPoint(x + radius, y, radius)
-    g.setColor(g.kColorWhite)
-    g.drawTextAligned(button, x + radius, y - 7, kTextAlignment.center)
-    g.setColor(g.kColorBlack)
-    g.drawText(label, x + (radius * 2) + 8, y - 9)
+-- DISABLED (removes Back / Offline + dots)
+local function drawButtonHint(...)
+    return
 end
 
 local function moveSelection(screen, delta)
@@ -91,7 +76,7 @@ function LeaderboardScreen:init()
     self.showingServerScores = false
     self.serverScores = nil
     self.isFetching = false
-    self.backgroundImage = gfx.image.new("Sprites/BackgroundArt") or gfx.image.new("images/ui/MainMenuBG")
+    self.backgroundImage = gfx.image.new("Sprites/Leaderboar_Background")
     
     local audioManager = AudioManager()
     self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
@@ -209,19 +194,9 @@ function LeaderboardScreen:draw(g)
         g.fillRect(0, 0, 400, 240)
     end
 
-    g.setColor(g.kColorWhite)
-    g.fillRect(0, 0, 400, 22)
-    g.fillRect(100, 10, 200, 28)
-    g.fillRect(106, 40, 188, 16)
+    -- REMOVED TOP WHITE RECTANGLES
+
     g.setColor(g.kColorBlack)
-
-    local modeLabel = self.showingServerScores and "GLOBAL TIMES" or "LOCAL TIMES"
-    if self.isFetching then
-        modeLabel = "SYNCING..."
-    end
-
-    g.drawTextAligned("LEADERBOARD", 200, 14, kTextAlignment.center)
-    g.drawTextAligned(modeLabel, 200, 42, kTextAlignment.center)
 
     local rowX = 122
     local rowW = 156
@@ -255,8 +230,12 @@ function LeaderboardScreen:draw(g)
                 g.fillRect(rowX + rowW + 2, y, 4, rowH)
 
                 if isSelected then
+                    -- TRANSPARENT (dithered) highlight
+                    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer8x8)
                     g.fillRect(rowX, y, rowW, rowH)
-                    g.setColor(g.kColorWhite)
+                    gfx.setDitherPattern(1.0, gfx.image.kDitherTypeBayer8x8)
+
+                    g.setColor(g.kColorBlack)
                     g.drawRect(rowX + 2, y + 2, rowW - 4, rowH - 4)
                 else
                     g.setColor(g.kColorWhite)
@@ -268,10 +247,6 @@ function LeaderboardScreen:draw(g)
                 g.drawTextAligned(tostring(rank), rowX + 10, y + 5, kTextAlignment.left)
                 g.drawText(getEntryName(entry), rowX + 34, y + 5)
                 g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
-                
-                if isSelected then
-                    g.setColor(g.kColorBlack)
-                end
             end
         end
     end
@@ -285,13 +260,7 @@ function LeaderboardScreen:draw(g)
         g.drawTextAligned(tostring(self.page) .. "/" .. tostring(maxPages), 200, 220, kTextAlignment.center)
     end
 
-    drawButtonHint(g, "B", "Back", 12, 223, false)
-
-    local toggleLabel = self.showingServerScores and "Local" or "Global"
-    if not (self.gameManager and self.gameManager.dataManager and self.gameManager.dataManager:isOnlineSyncAvailable()) then
-        toggleLabel = "Offline"
-    end
-    drawButtonHint(g, "A", toggleLabel, 388, 223, true)
+    -- BUTTON HINTS REMOVED
 end
 
 return LeaderboardScreen

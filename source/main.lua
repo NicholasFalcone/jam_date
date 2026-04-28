@@ -438,6 +438,8 @@ function playdate.update()
             local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
+            Crossair:resetToCenter()
+
             gameManager:setState("running")
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
@@ -474,6 +476,8 @@ function playdate.update()
             local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
             
+            Crossair:resetToCenter()
+
             gameManager:setState("idle")
         end
     end
@@ -683,5 +687,6 @@ end
 function drawEnemies()
     for i = #enemies, 1, -1 do
         enemies[i]:draw(playerRotation)
+        enemies[i]:drawDebugHitbox()
     end
 end
