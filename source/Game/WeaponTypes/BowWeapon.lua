@@ -1,5 +1,11 @@
 local gfx = playdate.graphics
 
+local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
+	if frame and frame.drawCentered then
+		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
+	end
+end
+
 -- Maps chargeProgress → crosshair bow frame 1-9
 local function syncBowFrame(self)
 	if not self.crosshair then return end
@@ -13,7 +19,10 @@ end
 
 local function triggerFire(self)
 	self:fire(self.Bow_AmmoCost or 1)
-	self.Bow_fireTicks = 4
+	local shootFrames = self.Bow_shootFrames
+	local totalNumFrames = (shootFrames and #shootFrames) or 4
+	self.Bow_fireTicks = totalNumFrames * 2
+	self.Bow_fireFrameIndex = 1
 	self.Bow_isCharged = false
 	self.Bow_chargeProgress = 0
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
@@ -29,6 +38,13 @@ local function configure(self)
 	self.maxCooldown = 0
 	self.autoFire = false
 	self.Damage = 200
+	self.Bow_chargeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Bow_Charge/Bow-Charge-", {1, 2, 3, 4, 5})
+	self.Bow_shootFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Bow_Shoot/Bow-Shoot-", {1, 2, 3, 4})
+	self.Bow_idleFrameIndex = 1
+	self.Bow_chargeOffsetX = 90
+	self.Bow_chargeOffsetY = -70
+	self.Bow_shootOffsetX = 130
+	self.Bow_shootOffsetY = -45
 	self.Bow_AmmoCost = 1
 	self.Bow_ChargeArc = 160
 	self.Bow_HoldStillDuration = 0.3
@@ -52,6 +68,11 @@ end
 local function update(self, now)
 	if self.Bow_fireTicks and self.Bow_fireTicks > 0 then
 		self:setState("firing")
+		local shootFrames = self.Bow_shootFrames
+		local totalNumFrames = (shootFrames and #shootFrames) or 4
+		local totalTicks = totalNumFrames * 2
+		local currentFrame = math.floor((totalTicks - self.Bow_fireTicks) / 2) + 1
+		self.Bow_fireFrameIndex = math.max(1, math.min(totalNumFrames, currentFrame))
 		self.Bow_fireTicks = self.Bow_fireTicks - 1
 		return
 	elseif self.weaponState == "firing" then
@@ -117,45 +138,38 @@ local function onCrankChange(self, change)
 end
 
 local function draw(self, cx, cy)
-	local gripX = cx - 12
-	local gripY = cy - 30
-	local progress = math.min(1, (self.Bow_chargeProgress or 0) / (self.Bow_ChargeArc or 180))
-	if self.Bow_isCharged then
-		progress = 1
+	local isFiring = (self.Bow_fireTicks and self.Bow_fireTicks > 0) or (self.weaponState == "firing")
+	if isFiring then
+		local shootFrames = self.Bow_shootFrames
+		if shootFrames and #shootFrames > 0 then
+			local shootIndex = math.max(1, math.min(#shootFrames, self.Bow_fireFrameIndex or 1))
+			local shootFrame = shootFrames[shootIndex]
+			drawFrameWithOffset(shootFrame, cx, cy, self.Bow_shootOffsetX, self.Bow_shootOffsetY)
+		end
+		return
 	end
 
-	local stringRestOffset = 6
-	local stringPullDistance = 20
-	local topX = gripX - 8
-	local topY = gripY - 18
-	local bottomX = gripX - 8
-	local bottomY = gripY + 22
-	local stringX = gripX + stringRestOffset - math.floor(progress * stringPullDistance)
-	local stringY = gripY + 2
+	local chargeFrames = self.Bow_chargeFrames
+	if chargeFrames and #chargeFrames > 0 then
+		local progress = math.min(1, (self.Bow_chargeProgress or 0) / (self.Bow_ChargeArc or 180))
+		if self.Bow_isCharged then
+			progress = 1
+		end
 
+		local chargeIndex = self.Bow_idleFrameIndex or 1
+		if progress > 0 then
+			chargeIndex = math.floor(progress * (#chargeFrames - 1)) + 1
+		end
+
+		local chargeFrame = chargeFrames[math.max(1, math.min(#chargeFrames, chargeIndex))]
+		drawFrameWithOffset(chargeFrame, cx, cy, self.Bow_chargeOffsetX, self.Bow_chargeOffsetY)
+		return
+	end
+
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillRect(cx - 20, cy - 30, 40, 60)
 	gfx.setColor(gfx.kColorBlack)
-	gfx.setLineWidth(2)
-	gfx.drawLine(gripX, gripY - 4, gripX, gripY + 8)
-	gfx.drawLine(topX, topY, gripX, gripY - 4)
-	gfx.drawLine(gripX, gripY + 8, bottomX, bottomY)
-	gfx.drawLine(topX, topY, stringX, stringY)
-	gfx.drawLine(stringX, stringY, bottomX, bottomY)
-	gfx.drawLine(stringX - 6, stringY, stringX + 16, stringY)
-	gfx.drawLine(stringX + 12, stringY - 4, stringX + 16, stringY)
-	gfx.drawLine(stringX + 12, stringY + 4, stringX + 16, stringY)
-	gfx.setLineWidth(1)
-
-	local indicatorWidth = 50
-	local indicatorX = cx - math.floor(indicatorWidth / 2)
-	local indicatorY = cy + 18
-	gfx.drawRect(indicatorX, indicatorY, indicatorWidth, 6)
-	if progress > 0 then
-		gfx.fillRect(indicatorX + 1, indicatorY + 1, math.floor((indicatorWidth - 2) * progress), 4)
-	end
-
-	if self.weaponState == "firing" then
-		self:drawFlash(stringX + 12, stringY)
-	end
+	gfx.drawRect(cx - 20, cy - 30, 40, 60)
 end
 
 local function playFireSound(self)

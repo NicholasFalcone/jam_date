@@ -1,5 +1,11 @@
 local gfx = playdate.graphics
 
+local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
+	if frame and frame.drawCentered then
+		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
+	end
+end
+
 local function getRandomVelocity(self)
 	local minVelocity = self.Flamethrower_MinVelocity or 0.18
 	local maxVelocity = self.Flamethrower_MaxVelocity or 0.42
@@ -32,6 +38,13 @@ local function configure(self)
 	self.maxCooldown = 0
 	self.autoFire = true
 	self.Damage = 10
+	self.Flamethrower_frames = self:loadFrameSequence("Sprites/Gun viewmodel/FLAME/FLAME - ", {0, 1, 2})
+	self.Flamethrower_particleFrames = self:loadFrameSequence("Sprites/Gun viewmodel/FLAME_Particle/FLAME_Particle - ", {1, 2, 3, 4})
+	self.Flamethrower_idleFrameIndex = 1
+	self.Flamethrower_offsetX = 96
+	self.Flamethrower_offsetY = -139
+	self.Flamethrower_particleOffsetX = 176
+	self.Flamethrower_particleOffsetY = -6
 	self.lastHitProcessTime = 0
 	self.lastShotTime = playdate.getElapsedTime()
 	self.Flamethrower_AmmoCost = 1
@@ -132,23 +145,30 @@ local function onCrankChange(self, change)
 end
 
 local function draw(self, cx, cy)
-	local bodyX = cx - 34
-	local bodyY = cy - 18
-	local nozzleX = cx + 42
-	local nozzleY = cy - 18
+	local flameFrames = self.Flamethrower_frames
+	if flameFrames and #flameFrames > 0 then
+		local frameIndex = self.Flamethrower_idleFrameIndex or 1
+		if self.weaponState ~= "idle" then
+			if self.Flamethrower_isFiring then
+				frameIndex = (self.firingFrame % #flameFrames) + 1
+			else
+				local pressure = self.Flamethrower_PressurePosition or 0.5
+				frameIndex = math.floor(pressure * (#flameFrames - 1)) + 1
+			end
+		end
 
-	gfx.setColor(gfx.kColorWhite)
-	gfx.fillRoundRect(bodyX, bodyY, 74, 24, 6)
-	gfx.fillRect(cx - 10, cy - 30, 22, 16)
-	gfx.fillRect(cx - 6, cy - 2, 14, 16)
-	gfx.fillRect(nozzleX - 4, nozzleY, 22, 8)
-	gfx.setColor(gfx.kColorBlack)
-	gfx.drawRoundRect(bodyX, bodyY, 74, 24, 6)
-	gfx.drawRect(cx - 10, cy - 30, 22, 16)
-	gfx.drawRect(cx - 6, cy - 2, 14, 16)
-	gfx.drawRect(nozzleX - 4, nozzleY, 22, 8)
-	gfx.drawLine(cx - 20, cy - 6, cx - 8, cy + 8)
-	gfx.drawLine(cx + 6, cy - 18, cx + 22, cy - 34)
+		local flameFrame = flameFrames[math.max(1, math.min(#flameFrames, frameIndex))]
+		drawFrameWithOffset(flameFrame, cx, cy, self.Flamethrower_offsetX, self.Flamethrower_offsetY)
+	end
+
+	if self.weaponState == "firing" then
+		local particleFrames = self.Flamethrower_particleFrames
+		if particleFrames and #particleFrames > 0 then
+			local particleIndex = (self.firingFrame % #particleFrames) + 1
+			local particleFrame = particleFrames[math.max(1, math.min(#particleFrames, particleIndex))]
+			drawFrameWithOffset(particleFrame, cx, cy, self.Flamethrower_particleOffsetX, self.Flamethrower_particleOffsetY)
+		end
+	end
 
 	local barX = cx + 74
 	local barY = cy - 72
@@ -177,13 +197,7 @@ local function draw(self, cx, cy)
 	end
 
 	if self.weaponState == "firing" then
-		for i = 0, 5 do
-			local spread = (i - 2.5) * 4
-			gfx.drawLine(nozzleX + 18, nozzleY + 4, nozzleX + 44 + i * 8, nozzleY - 10 + spread)
-		end
-		for i = 1, 5 do
-			gfx.fillCircleAtPoint(nozzleX + 28 + i * 10, nozzleY - 10 + math.random(-12, 12), math.max(1, 4 - math.floor(i / 2)))
-		end
+		self:drawFlash(cx + 52, cy - 12)
 	end
 end
 

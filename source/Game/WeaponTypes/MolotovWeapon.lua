@@ -1,5 +1,11 @@
 local gfx = playdate.graphics
 
+local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
+	if frame and frame.drawCentered then
+		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
+	end
+end
+
 local function resetShakeProgress(self)
 	self.Molotov_shakesCompleted = 0
 	self.Molotov_currentShakeArc = 0
@@ -8,7 +14,10 @@ end
 
 local function triggerFire(self)
 	self:fire(self.Molotov_AmmoCost or 1)
-	self.Molotov_fireTicks = 10
+	local throwFrames = self.Molotov_throwFrames
+	local totalNumFrames = (throwFrames and #throwFrames) or 7
+	self.Molotov_fireTicks = totalNumFrames * 2
+	self.Molotov_fireFrameIndex = 1
 	self:startCooldown()
 	resetShakeProgress(self)
 end
@@ -18,7 +27,12 @@ local function configure(self)
 	self.maxCooldown = 20
 	self.autoFire = false
 	self.Damage = 200
-	self.Molotov_shakeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_shake/Molotov", {1, 2})
+	self.Molotov_shakeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_shake/Molotov-Shake-", {1, 2, 3, 4})
+	self.Molotov_throwFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_throw/Molotov-Throw-", {1, 2, 3, 4, 5, 6, 7})
+	self.Molotov_idleOffsetX = -64
+	self.Molotov_idleOffsetY = -16
+	self.Molotov_throwOffsetX = -94
+	self.Molotov_throwOffsetY = -26
 	self.Molotov_ShakeCountRequired = 6
 	self.Molotov_MinShakeArc = 15
 	self.Molotov_AmmoCost = 1
@@ -41,6 +55,11 @@ end
 local function update(self)
 	if self.Molotov_fireTicks and self.Molotov_fireTicks > 0 then
 		self:setState("firing")
+		local throwFrames = self.Molotov_throwFrames
+		local totalNumFrames = (throwFrames and #throwFrames) or 7
+		local totalTicks = totalNumFrames * 2
+		local currentFrame = math.floor((totalTicks - self.Molotov_fireTicks) / 2) + 1
+		self.Molotov_fireFrameIndex = math.max(1, math.min(totalNumFrames, currentFrame))
 		self.Molotov_fireTicks = self.Molotov_fireTicks - 1
 	elseif self.weaponState == "firing" then
 		if self:isOnCooldown() then
@@ -107,6 +126,17 @@ local function onCrankChange(self, change)
 end
 
 local function draw(self, cx, cy)
+	local isFiring = (self.Molotov_fireTicks and self.Molotov_fireTicks > 0) or (self.weaponState == "firing")
+	if isFiring then
+		local throwFrames = self.Molotov_throwFrames
+		if throwFrames and #throwFrames > 0 then
+			local throwIndex = math.max(1, math.min(#throwFrames, self.Molotov_fireFrameIndex or 1))
+			local throwFrame = throwFrames[throwIndex]
+			drawFrameWithOffset(throwFrame, cx, cy, self.Molotov_throwOffsetX, self.Molotov_throwOffsetY)
+			return
+		end
+	end
+
 	local shakesCompleted = self.Molotov_shakesCompleted or 0
 	local shakeTarget = self.Molotov_ShakeCountRequired or 1
 	local arcProgress = 0
@@ -127,9 +157,7 @@ local function draw(self, cx, cy)
 		end
 
 		local frame = shakeFrames[math.max(1, math.min(#shakeFrames, frameIndex))]
-		if frame and frame.drawCentered then
-			frame:drawCentered(cx, cy)
-		end
+		drawFrameWithOffset(frame, cx, cy, self.Molotov_idleOffsetX, self.Molotov_idleOffsetY)
 	else
 		local bodyX = cx - 12
 		local bodyY = cy - 28
@@ -156,9 +184,6 @@ local function draw(self, cx, cy)
 		gfx.fillRect(indicatorX + 1, indicatorY + 1, math.floor((indicatorWidth - 2) * progress), 4)
 	end
 
-	if self.weaponState == "firing" then
-		self:drawFlash(cx + 14, cy - 42)
-	end
 end
 
 local function playFireSound(self)
