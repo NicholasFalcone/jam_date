@@ -1,11 +1,5 @@
 local gfx = playdate.graphics
 
-local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
-	if frame and frame.drawCentered then
-		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
-	end
-end
-
 local function getRandomVelocity(self)
 	local minVelocity = self.Flamethrower_MinVelocity or 0.18
 	local maxVelocity = self.Flamethrower_MaxVelocity or 0.42
@@ -41,10 +35,6 @@ local function configure(self)
 	self.Flamethrower_frames = self:loadFrameSequence("Sprites/Gun viewmodel/FLAME/FLAME - ", {0, 1, 2})
 	self.Flamethrower_particleFrames = self:loadFrameSequence("Sprites/Gun viewmodel/FLAME_Particle/FLAME_Particle - ", {1, 2, 3, 4})
 	self.Flamethrower_idleFrameIndex = 1
-	self.Flamethrower_offsetX = 96
-	self.Flamethrower_offsetY = -139
-	self.Flamethrower_particleOffsetX = 176
-	self.Flamethrower_particleOffsetY = -6
 	self.lastHitProcessTime = 0
 	self.lastShotTime = playdate.getElapsedTime()
 	self.Flamethrower_AmmoCost = 1
@@ -158,7 +148,9 @@ local function draw(self, cx, cy)
 		end
 
 		local flameFrame = flameFrames[math.max(1, math.min(#flameFrames, frameIndex))]
-		drawFrameWithOffset(flameFrame, cx, cy, self.Flamethrower_offsetX, self.Flamethrower_offsetY)
+		if flameFrame and flameFrame.drawCentered then
+			flameFrame:drawCentered(cx, cy)
+		end
 	end
 
 	if self.weaponState == "firing" then
@@ -166,7 +158,9 @@ local function draw(self, cx, cy)
 		if particleFrames and #particleFrames > 0 then
 			local particleIndex = (self.firingFrame % #particleFrames) + 1
 			local particleFrame = particleFrames[math.max(1, math.min(#particleFrames, particleIndex))]
-			drawFrameWithOffset(particleFrame, cx, cy, self.Flamethrower_particleOffsetX, self.Flamethrower_particleOffsetY)
+			if particleFrame and particleFrame.drawCentered then
+				particleFrame:drawCentered(cx + 76, cy - 22)
+			end
 		end
 	end
 

@@ -223,7 +223,7 @@ end
 function Weapon:draw()
 	local definition = self:getDefinition()
 	local cx = 200
-	local cy = 220
+	local cy = 120
 
 	if definition and definition.draw then
 		definition.draw(self, cx, cy)

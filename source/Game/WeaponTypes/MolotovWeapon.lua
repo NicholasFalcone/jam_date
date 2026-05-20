@@ -1,11 +1,5 @@
 local gfx = playdate.graphics
 
-local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
-	if frame and frame.drawCentered then
-		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
-	end
-end
-
 local function resetShakeProgress(self)
 	self.Molotov_shakesCompleted = 0
 	self.Molotov_currentShakeArc = 0
@@ -29,10 +23,6 @@ local function configure(self)
 	self.Damage = 200
 	self.Molotov_shakeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_shake/Molotov-Shake-", {1, 2, 3, 4})
 	self.Molotov_throwFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Molotov_throw/Molotov-Throw-", {1, 2, 3, 4, 5, 6, 7})
-	self.Molotov_idleOffsetX = -64
-	self.Molotov_idleOffsetY = -16
-	self.Molotov_throwOffsetX = -94
-	self.Molotov_throwOffsetY = -26
 	self.Molotov_ShakeCountRequired = 6
 	self.Molotov_MinShakeArc = 15
 	self.Molotov_AmmoCost = 1
@@ -132,7 +122,9 @@ local function draw(self, cx, cy)
 		if throwFrames and #throwFrames > 0 then
 			local throwIndex = math.max(1, math.min(#throwFrames, self.Molotov_fireFrameIndex or 1))
 			local throwFrame = throwFrames[throwIndex]
-			drawFrameWithOffset(throwFrame, cx, cy, self.Molotov_throwOffsetX, self.Molotov_throwOffsetY)
+			if throwFrame and throwFrame.drawCentered then
+				throwFrame:drawCentered(cx, cy)
+			end
 			return
 		end
 	end
@@ -157,7 +149,9 @@ local function draw(self, cx, cy)
 		end
 
 		local frame = shakeFrames[math.max(1, math.min(#shakeFrames, frameIndex))]
-		drawFrameWithOffset(frame, cx, cy, self.Molotov_idleOffsetX, self.Molotov_idleOffsetY)
+		if frame and frame.drawCentered then
+			frame:drawCentered(cx, cy)
+		end
 	else
 		local bodyX = cx - 12
 		local bodyY = cy - 28

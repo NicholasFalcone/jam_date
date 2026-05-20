@@ -1,11 +1,5 @@
 local gfx = playdate.graphics
 
-local function drawFrameWithOffset(frame, cx, cy, offsetX, offsetY)
-	if frame and frame.drawCentered then
-		frame:drawCentered(cx + (offsetX or 0), cy + (offsetY or 0))
-	end
-end
-
 -- Maps chargeProgress → crosshair bow frame 1-9
 local function syncBowFrame(self)
 	if not self.crosshair then return end
@@ -41,10 +35,6 @@ local function configure(self)
 	self.Bow_chargeFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Bow_Charge/Bow-Charge-", {1, 2, 3, 4, 5})
 	self.Bow_shootFrames = self:loadFrameSequence("Sprites/Gun viewmodel/Bow_Shoot/Bow-Shoot-", {1, 2, 3, 4})
 	self.Bow_idleFrameIndex = 1
-	self.Bow_chargeOffsetX = 90
-	self.Bow_chargeOffsetY = -70
-	self.Bow_shootOffsetX = 130
-	self.Bow_shootOffsetY = -45
 	self.Bow_AmmoCost = 1
 	self.Bow_ChargeArc = 160
 	self.Bow_HoldStillDuration = 0.3
@@ -144,7 +134,9 @@ local function draw(self, cx, cy)
 		if shootFrames and #shootFrames > 0 then
 			local shootIndex = math.max(1, math.min(#shootFrames, self.Bow_fireFrameIndex or 1))
 			local shootFrame = shootFrames[shootIndex]
-			drawFrameWithOffset(shootFrame, cx, cy, self.Bow_shootOffsetX, self.Bow_shootOffsetY)
+			if shootFrame and shootFrame.drawCentered then
+				shootFrame:drawCentered(cx, cy)
+			end
 		end
 		return
 	end
@@ -162,7 +154,9 @@ local function draw(self, cx, cy)
 		end
 
 		local chargeFrame = chargeFrames[math.max(1, math.min(#chargeFrames, chargeIndex))]
-		drawFrameWithOffset(chargeFrame, cx, cy, self.Bow_chargeOffsetX, self.Bow_chargeOffsetY)
+		if chargeFrame and chargeFrame.drawCentered then
+			chargeFrame:drawCentered(cx, cy)
+		end
 		return
 	end
 
