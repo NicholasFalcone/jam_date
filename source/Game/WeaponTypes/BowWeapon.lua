@@ -193,6 +193,9 @@ WeaponTypes.register({
 	startingAmmoMin = 6,
 	startingAmmoMax = 12,
 	hitMode = "all_once",
+	rollAmmo = function(dieValue)
+		return math.max(1, math.floor(dieValue * 0.75))
+	end,
 	configure = configure,
 	update = update,
 	onCrankChange = onCrankChange,

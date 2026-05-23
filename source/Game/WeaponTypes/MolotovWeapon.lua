@@ -163,19 +163,19 @@ local function draw(self, cx, cy)
 		gfx.drawRoundRect(bodyX, bodyY, 24, 34, 6)
 		gfx.drawRect(cx - 5, cy - 38, 10, 10)
 		gfx.drawLine(cx - 2, cy - 41, cx + 5, cy - 48)
-	end
 
-	local fillHeight = math.floor(24 * progress)
-	if fillHeight > 0 then
-		gfx.fillRect(cx - 7, cy + 28 - fillHeight, 14, fillHeight)
-	end
+		local fillHeight = math.floor(24 * progress)
+		if fillHeight > 0 then
+			gfx.fillRect(cx - 7, cy + 28 - fillHeight, 14, fillHeight)
+		end
 
-	local indicatorWidth = 50
-	local indicatorX = cx - math.floor(indicatorWidth / 2)
-	local indicatorY = cy + 18
-	gfx.drawRect(indicatorX, indicatorY, indicatorWidth, 6)
-	if progress > 0 then
-		gfx.fillRect(indicatorX + 1, indicatorY + 1, math.floor((indicatorWidth - 2) * progress), 4)
+		local indicatorWidth = 50
+		local indicatorX = cx - math.floor(indicatorWidth / 2)
+		local indicatorY = cy + 18
+		gfx.drawRect(indicatorX, indicatorY, indicatorWidth, 6)
+		if progress > 0 then
+			gfx.fillRect(indicatorX + 1, indicatorY + 1, math.floor((indicatorWidth - 2) * progress), 4)
+		end
 	end
 
 end
