@@ -72,7 +72,7 @@ local roadWorldOffset = 0
 local roadsidePropStates = {} -- Store random scale and sprite for each roadside prop position
 local roadsidePropImages = nil
 local roadsidePropSpawnChance = 1 -- chance that a road row spawns props
-local roadsidePropBothSidesChance = 0.3 -- when spawning, chance to draw both sides
+local roadsidePropBothSidesChance = 0.6 -- when spawning, chance to draw both sides
 local roadsidePropSingleSideLeftChance = 0.50 -- for single-side rows, chance to pick left
 
 -- Internal timers
@@ -572,16 +572,19 @@ function drawRoad()
     -- Ogni riga mondo scorre lungo Y in modo continuo e viene sostituita
     -- solo quando supera il player o quando entra dall'orizzonte.
     local worldRows = roadWorldOffset / 8
-    local firstRow = math.floor(worldRows / 5) * 5 - 10
+    local firstRow = math.floor(worldRows / 3) * 3 - 9
     pruneRoadsidePropStates(firstRow - 20, firstRow + 120)
 
-    for rowIndex = firstRow, firstRow + 80, 5 do
+    for rowIndex = firstRow, firstRow + 80, 3 do
         local rowPhase = (rowIndex - worldRows) * 0.08
         if rowPhase > 0 and rowPhase < 1 then
-            local y = horizonY + (rowPhase * rowPhase) * (groundY - horizonY)
-            local w = topW + (rowPhase * rowPhase) * (botW - topW)
-            local propHeight = 10 + rowPhase * 40
-            local propWidth = 3 + rowPhase * 8
+            -- Per-row depth jitter: shifts each prop slightly closer or farther
+            local depthJitter = math.sin(rowIndex * 47.853 + 23.17) * 0.07
+            local drawPhase = math.max(0.01, math.min(0.99, rowPhase + depthJitter))
+            local y = horizonY + (drawPhase * drawPhase) * (groundY - horizonY)
+            local w = topW + (drawPhase * drawPhase) * (botW - topW)
+            local propHeight = 10 + drawPhase * 40
+            local propWidth = 3 + drawPhase * 8
 
             local spawnRoll = math.abs(math.sin(rowIndex * 12.9898 + 78.233))
             local bothRoll = math.abs(math.sin(rowIndex * 39.3467 + 11.135))
@@ -601,8 +604,10 @@ function drawRoad()
                 end
             end
 
-            local leftPropX = centerX - w - propWidth * 2
-            local rightPropX = centerX + w + propWidth * 2
+            -- Per-row horizontal scatter: pushes props further left/right by a varying amount
+            local hExtra = math.abs(math.sin(rowIndex * 19.73 + 41.5)) * 28
+            local leftPropX = centerX - w - propWidth * 2 - hExtra
+            local rightPropX = centerX + w + propWidth * 2 + hExtra
 
             if drawLeft and leftPropX > -20 and leftPropX < (screenWidth + 20) then
                 local leftKey = "L" .. rowIndex
