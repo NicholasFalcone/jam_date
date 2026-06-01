@@ -328,38 +328,25 @@ function GameManager:onPausedEnter()
 end
 
 function GameManager:calculateRollingResults()
-	-- Ensure we don't roll the same weapon twice in a row.
-	local weaponRoll = self.weaponDice.value
-	local prevWeapon = self.rolledWeapon
-	local attempts = 0
 	local weaponIds = WeaponTypes.getIds()
-	local function weaponFromRoll(roll)
-		if #weaponIds == 0 then
-			return "Minigun"
-		end
+	local prevWeapon = self.rolledWeapon
 
-		local index = math.max(1, math.min(#weaponIds, roll or 1))
-		return weaponIds[index]
+	-- Build candidate list excluding the weapon just used
+	local candidates = {}
+	for _, id in ipairs(weaponIds) do
+		if id ~= prevWeapon then
+			table.insert(candidates, id)
+		end
+	end
+	-- Safety fallback: if somehow only one weapon exists, allow it
+	if #candidates == 0 then
+		candidates = weaponIds
 	end
 
-	while prevWeapon and attempts < 10 do
-		local candidate = weaponFromRoll(weaponRoll)
-		if candidate ~= prevWeapon then
-			break
-		end
-		-- Reroll the weapon die and try again (bounded attempts)
-		if self.weaponDice and self.weaponDice.roll then
-			self.weaponDice:roll()
-			weaponRoll = self.weaponDice.value
-		else
-			break
-		end
-		attempts = attempts + 1
-	end
+	-- Pick uniformly from valid candidates (guaranteed different from previous)
+	self.rolledWeapon = candidates[math.random(1, #candidates)]
 
-	self.rolledWeapon = weaponFromRoll(weaponRoll)
-
-	-- Calculate ammo based on final weaponRoll
+	-- Calculate ammo using the ammo dice
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		self.rolledAmmo = self.rolledAmmo + WeaponTypes.rollAmmo(self.rolledWeapon, die.value)
