@@ -9,8 +9,15 @@ function Crossair:init()
     self.reticleScale = 1
 
     -- Standard reticles
-    self.shotgunReticle = gfx.image.new("Sprites/Crossair_shotgun")
-    self.normalReticle  = gfx.image.new("Sprites/Crossair")
+    self.shotgunReticle     = gfx.image.new("Sprites/Crossair_shotgun")
+    self.normalReticle      = gfx.image.new("Sprites/Crossair")
+    self.flamethrowerReticle = gfx.image.new("Sprites/Crossair_flamethrower")
+    self.molotovReticle      = gfx.image.new("Sprites/Crossair_molotov")
+
+    -- Flamethrower reticle flag
+    self.flamethrowerActive = false
+    -- Molotov reticle flag
+    self.molotovActive = false
 
     -- Bow animated reticle frames (Bow_Crossair_Anim/Crossair_bow1 … Crossair_bow9)
     self.bowFrames = {}
@@ -40,6 +47,16 @@ function Crossair:getActiveReticle()
             local idx = math.max(1, math.min(maxFrame, self.bowAnimFrame))
             return self.bowFrames[idx], 1
         end
+    end
+
+    -- Flamethrower: custom reticle
+    if self.flamethrowerActive and self.flamethrowerReticle then
+        return self.flamethrowerReticle, self.reticleScale or 1
+    end
+
+    -- Molotov: custom reticle
+    if self.molotovActive and self.molotovReticle then
+        return self.molotovReticle, self.reticleScale or 1
     end
 
     -- Shotgun: large circle reticle
