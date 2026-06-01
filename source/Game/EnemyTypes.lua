@@ -8,9 +8,10 @@ local enemyTypes = {
         health = 100,
         speed = 0.0056,
         spawnWeight = 45,
-        hitboxScale = 0.8, 
-        hitboxScaleX = 1,      
-        hitboxOffsetY = 15,     
+        hitboxScale = 0.8,
+        hitboxScaleX = 1,
+        hitboxOffsetY = 15,
+        animSpeed = 8,
     },
     {
         id = "raider",
@@ -20,13 +21,12 @@ local enemyTypes = {
         speed = 0.0050,
         spawnWeight = 35,
         hitboxScale = 0.45,
-        hitboxScaleX = 2,         
-        hitboxOffsetY = -15,     
-
-        -- Oscillazione orizzontale mentre avanza
+        hitboxScaleX = 2,
+        hitboxOffsetY = -15,
         oscillationEnabled = true,
-        oscillationAmplitude = 0.15,  -- Ampiezza dell'oscillazione (frazione della larghezza della corsia)
-        oscillationFrequency = 2.5,   -- Velocità dell'oscillazione
+        oscillationAmplitude = 0.15,
+        oscillationFrequency = 2.5,
+        animSpeed = 8,
     },
     {
         id = "brute",
@@ -35,11 +35,10 @@ local enemyTypes = {
         health = 140,
         speed = 0.0042,
         spawnWeight = 20,
-        hitboxScale = 0.7,  
-        hitboxScaleX = 1,         
-     
-    hitboxOffsetY = 20,     
-
+        hitboxScale = 0.7,
+        hitboxScaleX = 1,
+        hitboxOffsetY = 20,
+        animSpeed = 8,
     },
 }
 

@@ -7,20 +7,25 @@ local audioManager = AudioManager()
 -- Set to true to draw enemy hitboxes for debugging
 local DEBUG_HITBOX = true
 
-local enemySpriteCacheByPath = {}
+local enemyFramesCacheByPath = {}
 -- Cache for the explosion images so we only load them once
 local explosionFramesCache = nil
+-- Ping-pong animation sequence: frame indices 1→2→3→2→1…
+local ANIM_SEQUENCE = {1, 2, 3, 2}
 
-local function getCachedEnemySprite(spritePath)
-    if not spritePath then
-        return nil
+local function getCachedEnemyFrames(spritePath)
+    if not spritePath then return nil end
+    if enemyFramesCacheByPath[spritePath] then
+        return enemyFramesCacheByPath[spritePath]
     end
-
-    if enemySpriteCacheByPath[spritePath] == nil then
-        enemySpriteCacheByPath[spritePath] = gfx.image.new(spritePath)
+    local frames = {}
+    for _, suffix in ipairs({"", "_01", "_02"}) do
+        local img = gfx.image.new(spritePath .. suffix)
+        if img then table.insert(frames, img) end
     end
-
-    return enemySpriteCacheByPath[spritePath]
+    if #frames == 0 then frames = nil end
+    enemyFramesCacheByPath[spritePath] = frames
+    return frames
 end
 
 function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultiplier)
@@ -62,8 +67,15 @@ function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultipli
     self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
     self.enemyGoalPosition = -0.2
 
-    self.sprite = getCachedEnemySprite(resolvedType.spritePath) or getCachedEnemySprite("Sprites/Enemies/Enemy_01")
-    
+    local frames = getCachedEnemyFrames(resolvedType.spritePath) or getCachedEnemyFrames("Sprites/Enemies/Enemy_01")
+    self.animFrames = frames
+    self.sprite = frames and frames[1]  -- kept for hitbox size calculations
+
+    -- Animation state (ping-pong: 1→2→3→2→1…)
+    self.animPhase = 1
+    self.animTick  = 0
+    self.animSpeed = resolvedType.animSpeed or 8
+
     -- Flag to track if this enemy was hit in the current shot
     self.hitThisFrame = false
 
@@ -97,7 +109,14 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
 
     if not self.isDead then
         self.distance -= (self.speed or 0.005)
-        
+
+        -- Advance ping-pong animation
+        self.animTick += 1
+        if self.animTick >= self.animSpeed then
+            self.animTick = 0
+            self.animPhase = (self.animPhase % #ANIM_SEQUENCE) + 1
+        end
+
         -- Aggiorna l'oscillazione se abilitata
         if self.oscillationEnabled then
             self.oscillationTime += self.oscillationFrequency * 0.05
@@ -265,11 +284,13 @@ function Enemy:draw(playerRotation)
             gfx.fillCircleAtPoint(x, y - size/2, size)
         end
     else
-        if self.sprite and scale > 0 then
+        local frameIdx = ANIM_SEQUENCE[self.animPhase] or 1
+        local drawFrame = (self.animFrames and self.animFrames[frameIdx]) or self.sprite
+        if drawFrame and scale > 0 then
             local sw, sh = self.sprite:getSize()
             local scaledWidth = sw * scale
             local scaledHeight = sh * scale
-            self.sprite:drawScaled(x - scaledWidth/2, y - scaledHeight, scale, scale)
+            drawFrame:drawScaled(x - scaledWidth/2, y - scaledHeight, scale, scale)
         end
         
         if self.isHitted then
