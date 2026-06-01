@@ -39,6 +39,7 @@ local function configure(self)
 	if self.crosshair then
 		self.crosshair.hitRadius = self.Molotov_HitRadius
 		self.crosshair.reticleScale = self.Molotov_ReticleScale
+		self.crosshair.molotovActive = true
 	end
 end
 
@@ -180,8 +181,13 @@ local function draw(self, cx, cy)
 
 end
 
-local function playFireSound(self)
-	if self.Molotov_sfxShot then
+local function stopAllSounds(self)
+	if self.crosshair then
+		self.crosshair.molotovActive = false
+	end
+end
+
+local function playFireSound(self)	if self.Molotov_sfxShot then
 		pcall(function() self.Molotov_sfxShot:play(1) end)
 	end
 end
@@ -208,5 +214,6 @@ WeaponTypes.register({
 	draw = draw,
 	playFireSound = playFireSound,
 	applyFireFeedback = applyFireFeedback,
+	stopAllSounds = stopAllSounds,
 	hasActiveFireState = hasActiveFireState,
 })
