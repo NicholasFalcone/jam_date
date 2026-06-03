@@ -51,11 +51,14 @@ local function configure(self)
 	self.Flamethrower_NextDriftChangeTime = 0
 	self.Flamethrower_lastUpdateTime = playdate.getElapsedTime()
 	self.Flamethrower_isFiring = false
+	self.Flamethrower_particles = {}
+	self.Flamethrower_particleSpawnTimer = 0
 	resetPressure(self, playdate.getElapsedTime())
 
 	if self.crosshair then
 		self.crosshair.hitRadius = 0
 		self.crosshair.reticleScale = 1
+		self.crosshair.flamethrowerActive = true
 	end
 end
 
@@ -102,6 +105,39 @@ local function update(self, now)
 	end
 
 	self:updateCooldown()
+
+	-- Spawn new particles when firing
+	self.Flamethrower_particleSpawnTimer = (self.Flamethrower_particleSpawnTimer or 0) + 1
+	if self.Flamethrower_isFiring and self.Flamethrower_particleSpawnTimer >= 2 then
+		self.Flamethrower_particleSpawnTimer = 0
+		-- spawn 2 overlapping puffs for density
+		for _ = 1, 2 do
+			table.insert(self.Flamethrower_particles, {
+				ox = math.random(-6, 6),
+				oy = math.random(-4, 4),
+				dx = math.random(-40, 40) * 0.1,
+				dy = -math.random(15, 30) * 0.1,
+				frameIndex = 1,
+				frameTick  = 0,
+			})
+		end
+	end
+
+	-- Advance and cull particles (each frame lasts 5 ticks → full life = 20 ticks)
+	local alive = {}
+	for _, p in ipairs(self.Flamethrower_particles or {}) do
+		p.ox = p.ox + p.dx
+		p.oy = p.oy + p.dy
+		p.frameTick = p.frameTick + 1
+		if p.frameTick >= 5 then
+			p.frameTick = 0
+			p.frameIndex = p.frameIndex + 1
+		end
+		if p.frameIndex <= 4 then
+			table.insert(alive, p)
+		end
+	end
+	self.Flamethrower_particles = alive
 end
 
 local function onCrankChange(self, change)
@@ -153,13 +189,14 @@ local function draw(self, cx, cy)
 		end
 	end
 
-	if self.weaponState == "firing" then
-		local particleFrames = self.Flamethrower_particleFrames
-		if particleFrames and #particleFrames > 0 then
-			local particleIndex = (self.firingFrame % #particleFrames) + 1
-			local particleFrame = particleFrames[math.max(1, math.min(#particleFrames, particleIndex))]
-			if particleFrame and particleFrame.drawCentered then
-				particleFrame:drawCentered(cx + 76, cy - 22)
+	-- Draw live particles (continues briefly after stopping, naturally fading out)
+	local particleFrames = self.Flamethrower_particleFrames
+	if particleFrames and #particleFrames > 0 then
+		for _, p in ipairs(self.Flamethrower_particles or {}) do
+			local fi = math.max(1, math.min(#particleFrames, p.frameIndex))
+			local pf = particleFrames[fi]
+			if pf and pf.drawCentered then
+				pf:drawCentered(200 + math.floor(p.ox), 160 + math.floor(p.oy))
 			end
 		end
 	end
@@ -205,6 +242,9 @@ end
 
 local function stopAllSounds(self)
 	self.Flamethrower_isFiring = false
+	if self.crosshair then
+		self.crosshair.flamethrowerActive = false
+	end
 end
 
 WeaponTypes.register({
