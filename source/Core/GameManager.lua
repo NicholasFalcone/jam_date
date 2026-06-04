@@ -72,7 +72,19 @@ function GameManager:init()
 	self.menuTransitionFrame  = 1
 	self.menuTransitionTick   = 0
 	self.menuTransitionSpeed  = 1  -- ticks per frame (1 = fastest, 3 = original speed)
-	
+
+	-- Transition from game to Game Over screen (01–10), 10 frames
+	self.goTransitionFrames = {}
+	for i = 1, 10 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.goTransitionFrames[i] = gfx.image.new("images/ui/Transition_Game_to_GO/Transition_Game_to_GO_" .. suffix)
+	end
+	-- GO transition state: inactive by default
+	self.goTransitionActive = false
+	self.goTransitionFrame  = 1
+	self.goTransitionTick   = 0
+	self.goTransitionSpeed  = 2  -- ticks per frame (1 = fastest, 3 = original menu speed)
+
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
 	
@@ -228,6 +240,16 @@ function GameManager:isTransitioning()
 	return self.menuTransitionActive == true
 end
 
+function GameManager:startGoTransition()
+	self.goTransitionActive = true
+	self.goTransitionFrame  = 1
+	self.goTransitionTick   = 0
+end
+
+function GameManager:isGoTransitioning()
+	return self.goTransitionActive == true
+end
+
 function GameManager:onIdleEnter()
 	self.score = 0
 	self.waveCount = 0
@@ -344,6 +366,9 @@ function GameManager:onGameOverEnter()
 		playerName = "Player"
 	}
 	dataManager:addRunResult(runResult)
+
+	-- Kick off the Game -> Game Over transition animation
+	self:startGoTransition()
 end
 
 function GameManager:onPausedEnter()
@@ -447,6 +472,30 @@ local function clamp(v, lo, hi)
 end
 
 function GameManager:drawGameOverScreen(g)
+	-- ── Game → Game Over transition animation ───────────────────────────────────────────────
+	-- Plays on death; blocks all input until the last frame finishes.
+	if self.goTransitionActive then
+		local img = self.goTransitionFrames[self.goTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			-- Fallback: black screen while frame is missing
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.goTransitionTick = self.goTransitionTick + 1
+		if self.goTransitionTick >= (self.goTransitionSpeed or 1) then
+			self.goTransitionTick = 0
+			self.goTransitionFrame = self.goTransitionFrame + 1
+		end
+
+		if self.goTransitionFrame > 10 then  -- all 10 frames played
+			self.goTransitionActive = false    -- reveal the death screen
+		end
+		return
+	end
+	-- ───────────────────────────────────────────────────────────────────
 	-- ── Menu transition animation ──────────────────────────────────────────
 	-- Runs when "Main Menu" is selected; blocks all other input/drawing.
 	if self.menuTransitionActive then
@@ -460,7 +509,7 @@ function GameManager:drawGameOverScreen(g)
 		end
 
 		self.menuTransitionTick = self.menuTransitionTick + 1
-		if self.menuTransitionTick >= (self.menuTransitionSpeed or 1) then  -- ticks per frame (1 = ~0.18s total, 3 = original ~0.55s)
+		if self.menuTransitionTick >= (self.menuTransitionSpeed or 1) then  -- ticks per frame (1 = ~0.18s total)
 			self.menuTransitionTick = 0
 			self.menuTransitionFrame = self.menuTransitionFrame + 1
 		end
