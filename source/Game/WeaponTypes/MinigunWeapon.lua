@@ -92,7 +92,6 @@ local function draw(self, cx, cy)
 	end
 
 	if self.weaponState == "firing" then
-		self:drawFlash(cx + 54, cy - 8)
 	end
 end
 
