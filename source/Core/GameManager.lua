@@ -71,6 +71,7 @@ function GameManager:init()
 	self.menuTransitionActive = false
 	self.menuTransitionFrame  = 1
 	self.menuTransitionTick   = 0
+	self.menuTransitionSpeed  = 1  -- ticks per frame (1 = fastest, 3 = original speed)
 	
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
@@ -459,7 +460,7 @@ function GameManager:drawGameOverScreen(g)
 		end
 
 		self.menuTransitionTick = self.menuTransitionTick + 1
-		if self.menuTransitionTick >= 3 then          -- 3 ticks per frame ≈ 1 sec total
+		if self.menuTransitionTick >= (self.menuTransitionSpeed or 1) then  -- ticks per frame (1 = ~0.18s total, 3 = original ~0.55s)
 			self.menuTransitionTick = 0
 			self.menuTransitionFrame = self.menuTransitionFrame + 1
 		end

@@ -456,7 +456,7 @@ function UI:draw(currentWeapon)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
         gfx.setColor(gfx.kColorBlack)
 
-        local startY = 130 
+        local startY = 110  -- moved up from 130 to center items in the open area of the background
         local lineH = 22
 
         for i, label in ipairs(self.menuOptions) do
