@@ -60,6 +60,17 @@ function GameManager:init()
 	-- GAME OVER UI assets (put in: source/images/ui/)
 	self.gameOverBg = gfx.image.new("images/ui/GAME_OVER_3-dithered")
 	self.gameOverSelector = gfx.image.new("images/ui/Bullet_Revolver_White")
+
+	-- Transition to main menu frames (01–11), always 11 slots
+	self.menuTransitionFrames = {}
+	for i = 1, 11 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.menuTransitionFrames[i] = gfx.image.new("images/ui/Transition_GO_to_Menu/Transition_GO_to_Menu_" .. suffix)
+	end
+	-- Transition state: inactive by default
+	self.menuTransitionActive = false
+	self.menuTransitionFrame  = 1
+	self.menuTransitionTick   = 0
 	
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
@@ -206,6 +217,16 @@ function GameManager:isIdle() return self.currentState == GAME_STATE.IDLE end
 function GameManager:isPaused() return self.currentState == GAME_STATE.PAUSED end
 function GameManager:isRolling() return self.currentState == GAME_STATE.ROLLING end
 
+function GameManager:startMenuTransition()
+	self.menuTransitionActive = true
+	self.menuTransitionFrame  = 1
+	self.menuTransitionTick   = 0
+end
+
+function GameManager:isTransitioning()
+	return self.menuTransitionActive == true
+end
+
 function GameManager:onIdleEnter()
 	self.score = 0
 	self.waveCount = 0
@@ -328,25 +349,38 @@ function GameManager:onPausedEnter()
 end
 
 function GameManager:calculateRollingResults()
-	local weaponIds = WeaponTypes.getIds()
+	-- Ensure we don't roll the same weapon twice in a row.
+	local weaponRoll = self.weaponDice.value
 	local prevWeapon = self.rolledWeapon
-
-	-- Build candidate list excluding the weapon just used
-	local candidates = {}
-	for _, id in ipairs(weaponIds) do
-		if id ~= prevWeapon then
-			table.insert(candidates, id)
+	local attempts = 0
+	local weaponIds = WeaponTypes.getIds()
+	local function weaponFromRoll(roll)
+		if #weaponIds == 0 then
+			return "Minigun"
 		end
-	end
-	-- Safety fallback: if somehow only one weapon exists, allow it
-	if #candidates == 0 then
-		candidates = weaponIds
+
+		local index = math.max(1, math.min(#weaponIds, roll or 1))
+		return weaponIds[index]
 	end
 
-	-- Pick uniformly from valid candidates (guaranteed different from previous)
-	self.rolledWeapon = candidates[math.random(1, #candidates)]
+	while prevWeapon and attempts < 10 do
+		local candidate = weaponFromRoll(weaponRoll)
+		if candidate ~= prevWeapon then
+			break
+		end
+		-- Reroll the weapon die and try again (bounded attempts)
+		if self.weaponDice and self.weaponDice.roll then
+			self.weaponDice:roll()
+			weaponRoll = self.weaponDice.value
+		else
+			break
+		end
+		attempts = attempts + 1
+	end
 
-	-- Calculate ammo using the ammo dice
+	self.rolledWeapon = weaponFromRoll(weaponRoll)
+
+	-- Calculate ammo based on final weaponRoll
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		self.rolledAmmo = self.rolledAmmo + WeaponTypes.rollAmmo(self.rolledWeapon, die.value)
@@ -412,6 +446,32 @@ local function clamp(v, lo, hi)
 end
 
 function GameManager:drawGameOverScreen(g)
+	-- ── Menu transition animation ──────────────────────────────────────────
+	-- Runs when "Main Menu" is selected; blocks all other input/drawing.
+	if self.menuTransitionActive then
+		local img = self.menuTransitionFrames[self.menuTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			-- Fallback: black screen while frame is missing
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.menuTransitionTick = self.menuTransitionTick + 1
+		if self.menuTransitionTick >= 3 then          -- 3 ticks per frame ≈ 1 sec total
+			self.menuTransitionTick = 0
+			self.menuTransitionFrame = self.menuTransitionFrame + 1
+		end
+
+		if self.menuTransitionFrame > 11 then         -- all 11 frames played
+			self.menuTransitionActive = false
+			self:setState(GAME_STATE.IDLE)            -- onIdleEnter → ui:setScreen("menu")
+		end
+		return
+	end
+	-- ──────────────────────────────────────────────────────────────────────
+
 	-- Input: Up/Down + Crank switch selection
 	if playdate.buttonJustPressed(playdate.kButtonDown) then
 		self.gameOverIndex = clamp(self.gameOverIndex + 1, 1, 2)
