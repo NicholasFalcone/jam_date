@@ -325,7 +325,8 @@ function Enemy:drawDebugHitbox()
     local topW = 30
     local botW = 300
     local w = topW + sq * (botW - topW)
-    local ex = 200 + self.lane * w
+    local effectiveLane = self.lane + (self.oscillationOffset or 0)
+    local ex = 200 + effectiveLane * w
     local ey = horizonY + sq * (groundY - horizonY)
     local typeHitboxScale   = (self.enemyType and self.enemyType.hitboxScale)   or 1.0
     local typeHitboxScaleX  = (self.enemyType and self.enemyType.hitboxScaleX)  or 1.0
