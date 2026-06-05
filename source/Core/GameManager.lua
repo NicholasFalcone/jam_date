@@ -271,6 +271,16 @@ function GameManager:isPlayTransitioning()
 	return self.playTransitionActive == true
 end
 
+-- Called when the Play button is pressed in the menu.
+-- main.lua sets self.onPlayStart to do game reset before the transition fires.
+function GameManager:onPlayPressed()
+	if self.playTransitionActive then return end  -- already transitioning
+	if self.onPlayStart then
+		pcall(function() self.onPlayStart() end)
+	end
+	self:startPlayTransition()
+end
+
 function GameManager:onIdleEnter()
 	self.score = 0
 	self.waveCount = 0
@@ -496,7 +506,7 @@ function GameManager:drawIdleScreen(g)
 	if self.ui then
 		local action = self.ui:update()
 		if action == "play" then
-			-- Play button pressed - return to main loop to handle game start
+			self:onPlayPressed()
 		elseif action == "leaderboard" then
 			self.ui:setScreen("leaderboard")
 		elseif action == "howto" then

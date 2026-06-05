@@ -21,6 +21,22 @@ local screenWidth = playdate.display.getWidth()
 local enemies = {}
 local gameManager = GameManager()
 
+-- Game reset logic: called by gameManager when Play is pressed, before the transition.
+gameManager.onPlayStart = function()
+    enemies = {}
+    clearMolotovProjectiles()
+    local now = playdate.getElapsedTime()
+    lastSpawnTime = now
+    spawnN = spawnNStart
+    spawnT = spawnTStart
+    enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
+    needsWeaponRoll = false
+    currentWeaponIndex = math.random(1, #weaponTypes)
+    local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
+    currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
+    Crossair:resetToCenter()
+end
+
 -- Camera shake variables
 local cameraShakeX = 0
 local cameraShakeY = 0
@@ -426,27 +442,6 @@ function playdate.update()
             needsWeaponRoll = true
             clearMolotovProjectiles()
             gameManager:setState("rolling")
-        elseif gameManager:isIdle() and not gameManager:isPlayTransitioning() then
-            -- Reset game state and enemy list before starting
-            enemies = {}
-            clearMolotovProjectiles()
-            -- Reset spawn manager variables
-            local now = playdate.getElapsedTime()
-            lastSpawnTime = now
-            spawnN = spawnNStart  -- Start with fewer enemies
-            spawnT = spawnTStart  -- Reset spawn interval
-            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
-            needsWeaponRoll = false
-
-            -- Start with random weapon and random ammo
-            currentWeaponIndex = math.random(1, #weaponTypes)
-            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
-            currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
-
-            Crossair:resetToCenter()
-
-            -- Play the menu→game transition; setState("running") fires when it ends
-            gameManager:startPlayTransition()
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
             -- Only allow transition if dice have been rolled (RESULTS phase)
