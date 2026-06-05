@@ -369,8 +369,13 @@ function updateEnemies()
         end
     end
     
-    -- Check if out of ammo
-    if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
+    -- Check if out of ammo.
+    -- For the Molotov: wait until all in-flight projectiles have landed before
+    -- switching to the dice roll, so the last throw can still hit enemies.
+    local molotovStillInFlight = (currentWeapon and currentWeapon.weaponType == "Molotov")
+                                  and (#molotovProjectiles > 0)
+    if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0
+            and not needsWeaponRoll and not molotovStillInFlight then
         needsWeaponRoll = true
         clearMolotovProjectiles()
         gameManager:setState("rolling")
@@ -421,7 +426,7 @@ function playdate.update()
             needsWeaponRoll = true
             clearMolotovProjectiles()
             gameManager:setState("rolling")
-        elseif gameManager:isIdle() then
+        elseif gameManager:isIdle() and not gameManager:isPlayTransitioning() then
             -- Reset game state and enemy list before starting
             enemies = {}
             clearMolotovProjectiles()
@@ -432,15 +437,16 @@ function playdate.update()
             spawnT = spawnTStart  -- Reset spawn interval
             enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
             needsWeaponRoll = false
-            
+
             -- Start with random weapon and random ammo
             currentWeaponIndex = math.random(1, #weaponTypes)
             local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
-            
+
             Crossair:resetToCenter()
 
-            gameManager:setState("running")
+            -- Play the menu→game transition; setState("running") fires when it ends
+            gameManager:startPlayTransition()
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
             -- Only allow transition if dice have been rolled (RESULTS phase)

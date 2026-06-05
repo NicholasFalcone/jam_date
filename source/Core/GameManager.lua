@@ -71,7 +71,7 @@ function GameManager:init()
 	self.menuTransitionActive = false
 	self.menuTransitionFrame  = 1
 	self.menuTransitionTick   = 0
-	self.menuTransitionSpeed  = 1  -- ticks per frame (1 = fastest, 3 = original speed)
+	self.menuTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
 
 	-- Transition from game to Game Over screen (01–10), 10 frames
 	self.goTransitionFrames = {}
@@ -83,7 +83,18 @@ function GameManager:init()
 	self.goTransitionActive = false
 	self.goTransitionFrame  = 1
 	self.goTransitionTick   = 0
-	self.goTransitionSpeed  = 2  -- ticks per frame (1 = fastest, 3 = original menu speed)
+	self.goTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
+
+	-- Transition from main menu to play (1-9), 9 frames
+	self.playTransitionFrames = {}
+	for i = 1, 9 do
+		self.playTransitionFrames[i] = gfx.image.new("images/ui/Transition_MenuToPlay/Transition_Play_" .. tostring(i))
+	end
+	-- Play transition state: inactive by default
+	self.playTransitionActive = false
+	self.playTransitionFrame  = 1
+	self.playTransitionTick   = 0
+	self.playTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
 
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
@@ -248,6 +259,16 @@ end
 
 function GameManager:isGoTransitioning()
 	return self.goTransitionActive == true
+end
+
+function GameManager:startPlayTransition()
+	self.playTransitionActive = true
+	self.playTransitionFrame  = 1
+	self.playTransitionTick   = 0
+end
+
+function GameManager:isPlayTransitioning()
+	return self.playTransitionActive == true
 end
 
 function GameManager:onIdleEnter()
@@ -443,6 +464,31 @@ function GameManager:drawStateScreen(g)
 end
 
 function GameManager:drawIdleScreen(g)
+	-- ── Menu → Play transition animation ──────────────────────────────────────────────
+	-- Plays when the user picks Play; blocks input until the last frame.
+	if self.playTransitionActive then
+		local img = self.playTransitionFrames[self.playTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.playTransitionTick = self.playTransitionTick + 1
+		if self.playTransitionTick >= (self.playTransitionSpeed or 1) then
+			self.playTransitionTick = 0
+			self.playTransitionFrame = self.playTransitionFrame + 1
+		end
+
+		if self.playTransitionFrame > 9 then  -- all 9 frames played
+			self.playTransitionActive = false
+			self:setState(GAME_STATE.RUNNING)  -- now actually start the game
+		end
+		return
+	end
+	-- ───────────────────────────────────────────────────────────────────
+
 	g.setColor(g.kColorWhite)
 	g.fillRect(0, 0, 400, 240)
 	g.setColor(g.kColorBlack)
@@ -484,10 +530,19 @@ function GameManager:drawGameOverScreen(g)
 			g.fillRect(0, 0, 400, 240)
 		end
 
-		self.goTransitionTick = self.goTransitionTick + 1
-		if self.goTransitionTick >= (self.goTransitionSpeed or 1) then
-			self.goTransitionTick = 0
-			self.goTransitionFrame = self.goTransitionFrame + 1
+		-- Hold on frame 4 for 1 second (60 ticks) before continuing
+		if self.goTransitionFrame == 4 then
+			self.goTransitionHoldTick = (self.goTransitionHoldTick or 0) + 1
+			if self.goTransitionHoldTick >= 60 then
+				self.goTransitionHoldTick = 0
+				self.goTransitionFrame = 5  -- resume from frame 5
+			end
+		else
+			self.goTransitionTick = self.goTransitionTick + 1
+			if self.goTransitionTick >= (self.goTransitionSpeed or 1) then
+				self.goTransitionTick = 0
+				self.goTransitionFrame = self.goTransitionFrame + 1
+			end
 		end
 
 		if self.goTransitionFrame > 10 then  -- all 10 frames played
