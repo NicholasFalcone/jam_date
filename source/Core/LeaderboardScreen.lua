@@ -187,11 +187,10 @@ function LeaderboardScreen:fetchServerScores(dataManager)
 end
 
 function LeaderboardScreen:draw(g)
+    g.setColor(g.kColorWhite)
+    g.fillRect(0, 0, 400, 240)
     if self.backgroundImage then
         self.backgroundImage:draw(0, 0)
-    else
-        g.setColor(g.kColorWhite)
-        g.fillRect(0, 0, 400, 240)
     end
 
     -- REMOVED TOP WHITE RECTANGLES
@@ -230,13 +229,11 @@ function LeaderboardScreen:draw(g)
                 g.fillRect(rowX + rowW + 2, y, 4, rowH)
 
                 if isSelected then
-                    -- TRANSPARENT (dithered) highlight
-                    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer8x8)
+                    g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
-                    gfx.setDitherPattern(1.0, gfx.image.kDitherTypeBayer8x8)
-
                     g.setColor(g.kColorBlack)
-                    g.drawRect(rowX + 2, y + 2, rowW - 4, rowH - 4)
+                    g.drawRect(rowX, y, rowW, rowH)
+                    g.drawRect(rowX - 2, y - 2, rowW + 4, rowH + 4)
                 else
                     g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
