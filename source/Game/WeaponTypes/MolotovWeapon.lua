@@ -34,7 +34,8 @@ local function configure(self)
 	self.Molotov_currentShakeArc = 0
 	self.Molotov_lastDir = 0
 	self.Molotov_fireTicks = 0
-	self.Molotov_sfxShot = self.audioManager:loadSample("sounds/shotgun_shot")
+	self.Molotov_sfxHit    = self.audioManager:loadSample("sounds/SFX_Molotov_Hit")
+	self.Molotov_sfxShake  = self.audioManager:loadSample("sounds/SFX_Molotov_Shake")
 
 	if self.crosshair then
 		self.crosshair.hitRadius = self.Molotov_HitRadius
@@ -110,6 +111,11 @@ local function onCrankChange(self, change)
 	self.Molotov_lastDir = dir
 	self.Molotov_currentShakeArc = absoluteChange
 	self:setState("winding")
+
+	-- Sprite frame changes on every direction reversal → play shake sfx
+	if self.Molotov_sfxShake then
+		pcall(function() self.Molotov_sfxShake:play(1) end)
+	end
 
 	if (self.Molotov_shakesCompleted or 0) >= (self.Molotov_ShakeCountRequired or 6) then
 		triggerFire(self)
@@ -187,9 +193,8 @@ local function stopAllSounds(self)
 	end
 end
 
-local function playFireSound(self)	if self.Molotov_sfxShot then
-		pcall(function() self.Molotov_sfxShot:play(1) end)
-	end
+local function playFireSound(self)
+	-- no throw sound
 end
 
 local function applyFireFeedback(self)
