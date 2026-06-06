@@ -236,7 +236,7 @@ function LeaderboardScreen:draw(g)
                     if self.selectionImage then
                         local imgW, imgH = self.selectionImage:getSize()
                         local imgX = rowX + math.floor((rowW - imgW) / 2)
-                        local imgY = y + math.floor((rowH - imgH) / 2)
+                        local imgY = y + math.floor((rowH - imgH) / 2) + 2
                         self.selectionImage:draw(imgX, imgY)
                     end
                 else
@@ -257,9 +257,9 @@ function LeaderboardScreen:draw(g)
     local maxPages = math.max(1, math.ceil(totalEntries / self.itemsPerPage))
     if maxPages > 1 then
         g.setColor(g.kColorWhite)
-        g.fillRect(170, 216, 60, 16)
+        g.fillRect(170, 214, 60, 16)
         g.setColor(g.kColorBlack)
-        g.drawTextAligned(tostring(self.page) .. "/" .. tostring(maxPages), 200, 220, kTextAlignment.center)
+        g.drawTextAligned(tostring(self.page) .. "/" .. tostring(maxPages), 200, 214, kTextAlignment.center)
     end
 
     -- BUTTON HINTS REMOVED

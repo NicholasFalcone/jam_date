@@ -53,6 +53,9 @@ local function configure(self)
 	self.Flamethrower_isFiring = false
 	self.Flamethrower_particles = {}
 	self.Flamethrower_particleSpawnTimer = 0
+	self.Flamethrower_sfxFlame    = self.audioManager:loadSample("sounds/SFX_Flame")
+	self.Flamethrower_flameVol    = 0
+	self.Flamethrower_flamePlaying = false
 	resetPressure(self, playdate.getElapsedTime())
 
 	if self.crosshair then
@@ -138,6 +141,35 @@ local function update(self, now)
 		end
 	end
 	self.Flamethrower_particles = alive
+
+	-- ── Flame sound with fade in / fade out ───────────────────────────────
+	local sfx = self.Flamethrower_sfxFlame
+	if self.Flamethrower_isFiring then
+		if not self.Flamethrower_flamePlaying then
+			self.Flamethrower_flameVol = 0
+			if sfx then
+				pcall(function()
+					sfx:setVolume(0)
+					sfx:play(0)   -- 0 = loop indefinitely
+				end)
+			end
+			self.Flamethrower_flamePlaying = true
+		end
+		-- fade in: +0.08 per tick → full volume in ~13 ticks
+		self.Flamethrower_flameVol = math.min(1.0, (self.Flamethrower_flameVol or 0) + 0.08)
+		if sfx then pcall(function() sfx:setVolume(self.Flamethrower_flameVol) end) end
+	else
+		if self.Flamethrower_flamePlaying then
+			-- fade out: -0.08 per tick
+			self.Flamethrower_flameVol = math.max(0.0, (self.Flamethrower_flameVol or 0) - 0.08)
+			if sfx then pcall(function() sfx:setVolume(self.Flamethrower_flameVol) end) end
+			if self.Flamethrower_flameVol <= 0 then
+				if sfx then pcall(function() sfx:stop() end) end
+				self.Flamethrower_flamePlaying = false
+			end
+		end
+	end
+	-- ──────────────────────────────────────────────────────────────────────
 end
 
 local function onCrankChange(self, change)
@@ -241,6 +273,11 @@ end
 
 local function stopAllSounds(self)
 	self.Flamethrower_isFiring = false
+	if self.Flamethrower_sfxFlame then
+		pcall(function() self.Flamethrower_sfxFlame:stop() end)
+	end
+	self.Flamethrower_flamePlaying = false
+	self.Flamethrower_flameVol    = 0
 	if self.crosshair then
 		self.crosshair.flamethrowerActive = false
 	end
