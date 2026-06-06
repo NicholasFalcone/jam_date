@@ -77,6 +77,7 @@ function LeaderboardScreen:init()
     self.serverScores = nil
     self.isFetching = false
     self.backgroundImage = gfx.image.new("Sprites/Leaderboar_Background")
+    self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
     
     local audioManager = AudioManager()
     self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
@@ -187,10 +188,11 @@ function LeaderboardScreen:fetchServerScores(dataManager)
 end
 
 function LeaderboardScreen:draw(g)
-    g.setColor(g.kColorWhite)
-    g.fillRect(0, 0, 400, 240)
     if self.backgroundImage then
         self.backgroundImage:draw(0, 0)
+    else
+        g.setColor(g.kColorWhite)
+        g.fillRect(0, 0, 400, 240)
     end
 
     -- REMOVED TOP WHITE RECTANGLES
@@ -231,9 +233,12 @@ function LeaderboardScreen:draw(g)
                 if isSelected then
                     g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
-                    g.setColor(g.kColorBlack)
-                    g.drawRect(rowX, y, rowW, rowH)
-                    g.drawRect(rowX - 2, y - 2, rowW + 4, rowH + 4)
+                    if self.selectionImage then
+                        local imgW, imgH = self.selectionImage:getSize()
+                        local imgX = rowX + math.floor((rowW - imgW) / 2)
+                        local imgY = y + math.floor((rowH - imgH) / 2)
+                        self.selectionImage:draw(imgX, imgY)
+                    end
                 else
                     g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
