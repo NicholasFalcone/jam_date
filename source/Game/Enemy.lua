@@ -5,7 +5,7 @@ local gfx = playdate.graphics
 local audioManager = AudioManager()
 
 -- Set to true to draw enemy hitboxes for debugging
-local DEBUG_HITBOX = true
+local DEBUG_HITBOX = false
 
 local enemyFramesCacheByPath = {}
 -- Cache for the explosion images so we only load them once
