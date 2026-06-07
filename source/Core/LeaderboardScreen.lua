@@ -52,7 +52,11 @@ local function moveSelection(screen, delta)
         return
     end
 
+    local prevIndex = screen.selectedIndex
     screen.selectedIndex = math.max(1, math.min(totalEntries, screen.selectedIndex + delta))
+    if screen.selectedIndex ~= prevIndex and screen.SFX_MenuHighlight then
+        pcall(function() screen.SFX_MenuHighlight:play(1) end)
+    end
 
     local firstVisible = ((screen.page - 1) * screen.itemsPerPage) + 1
     local lastVisible = math.min(firstVisible + screen.itemsPerPage - 1, totalEntries)
@@ -80,7 +84,9 @@ function LeaderboardScreen:init()
     self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
     
     local audioManager = AudioManager()
-    self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_ChangePage    = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_MenuHighlight = audioManager:loadSample("sounds/SFX_Menu_Highlight")
+    self.SFX_UIClick       = audioManager:loadSample("sounds/SFX_UIClick")
 end
 
 function LeaderboardScreen:setGameManager(gameManager)
@@ -111,12 +117,14 @@ function LeaderboardScreen:update()
     if playdate.buttonJustPressed(playdate.kButtonA) and not self.isFetching and self.gameManager then
         local dataManager = self.gameManager.dataManager
         if self.showingServerScores then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             self.showingServerScores = false
             self:updateLeaderboard()
             if self.SFX_ChangePage then
                 pcall(function() self.SFX_ChangePage:play(1) end)
             end
         elseif dataManager and dataManager:isOnlineSyncAvailable() then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             self:fetchServerScores(dataManager)
             if self.SFX_ChangePage then
                 pcall(function() self.SFX_ChangePage:play(1) end)

@@ -193,10 +193,6 @@ local function processMolotovProjectiles()
                 e:applyHit(projectile.damage)
             end
 
-            if #hitEnemies > 0 and currentWeapon and currentWeapon.Molotov_sfxHit then
-                pcall(function() currentWeapon.Molotov_sfxHit:play(1) end)
-            end
-
             table.remove(molotovProjectiles, i)
         end
     end
@@ -462,6 +458,8 @@ function playdate.update()
                 gameManager:setState("running")
             end
         elseif gameManager:isGameOver() and not gameManager:isTransitioning() then
+            -- Play click sound on confirm
+            if gameManager.SFX_UIClick then pcall(function() gameManager.SFX_UIClick:play(1) end) end
             -- Shared cleanup
             enemies = {}
             clearMolotovProjectiles()

@@ -112,8 +112,10 @@ function GameManager:init()
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
 	self.gameOverCrankStepDeg = 18
-	self.SFX_RollingDice = audioManager:loadSample("sounds/SFX_DiceRoll")
-	self.SFX_GameOver = audioManager:loadSample("sounds/SFX_GameOver")
+	self.SFX_RollingDice   = audioManager:loadSample("sounds/SFX_DiceRoll")
+	self.SFX_GameOver      = audioManager:loadSample("sounds/SFX_GameOver")
+	self.SFX_UIClick       = audioManager:loadSample("sounds/SFX_UIClick")
+	self.SFX_MenuHighlight = audioManager:loadSample("sounds/SFX_Menu_Highlight")
 
 	-- Phase for rolling
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
@@ -506,14 +508,19 @@ function GameManager:drawIdleScreen(g)
 	if self.ui then
 		local action = self.ui:update()
 		if action == "play" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self:onPlayPressed()
 		elseif action == "leaderboard" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("leaderboard")
 		elseif action == "howto" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("howto")
 		elseif action == "credits" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("credits")
 		elseif action == "back" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("menu")
 		end
 
@@ -589,9 +596,17 @@ function GameManager:drawGameOverScreen(g)
 
 	-- Input: Up/Down + Crank switch selection
 	if playdate.buttonJustPressed(playdate.kButtonDown) then
+		local prev = self.gameOverIndex
 		self.gameOverIndex = clamp(self.gameOverIndex + 1, 1, 2)
+		if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+			pcall(function() self.SFX_MenuHighlight:play(1) end)
+		end
 	elseif playdate.buttonJustPressed(playdate.kButtonUp) then
+		local prev = self.gameOverIndex
 		self.gameOverIndex = clamp(self.gameOverIndex - 1, 1, 2)
+		if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+			pcall(function() self.SFX_MenuHighlight:play(1) end)
+		end
 	end
 
 	local crankDelta = playdate.getCrankChange()
@@ -600,12 +615,20 @@ function GameManager:drawGameOverScreen(g)
 
 		while self.gameOverCrankAccum >= self.gameOverCrankStepDeg do
 			self.gameOverCrankAccum = self.gameOverCrankAccum - self.gameOverCrankStepDeg
+			local prev = self.gameOverIndex
 			self.gameOverIndex = clamp(self.gameOverIndex + 1, 1, 2)
+			if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+				pcall(function() self.SFX_MenuHighlight:play(1) end)
+			end
 		end
 
 		while self.gameOverCrankAccum <= -self.gameOverCrankStepDeg do
 			self.gameOverCrankAccum = self.gameOverCrankAccum + self.gameOverCrankStepDeg
+			local prev = self.gameOverIndex
 			self.gameOverIndex = clamp(self.gameOverIndex - 1, 1, 2)
+			if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+				pcall(function() self.SFX_MenuHighlight:play(1) end)
+			end
 		end
 	end
 
