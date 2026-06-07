@@ -20,7 +20,7 @@ local function formatSurvivalTime(seconds)
         end
     end
 
-    return string.format("%02d.%02d.%02d", minutes, secs, centiseconds)
+    return string.format("%02d:%02d:%02d", minutes, secs, centiseconds)
 end
 
 local function getEntryName(entry)
@@ -82,6 +82,7 @@ function LeaderboardScreen:init()
     self.isFetching = false
     self.backgroundImage = gfx.image.new("Sprites/Leaderboar_Background")
     self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
+    self.crownImage      = gfx.image.new("Sprites/Crown")
     
     local audioManager = AudioManager()
     self.SFX_ChangePage    = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
@@ -255,8 +256,20 @@ function LeaderboardScreen:draw(g)
                 end
 
                 g.drawTextAligned(tostring(rank), rowX + 10, y + 5, kTextAlignment.left)
-                g.drawText(getEntryName(entry), rowX + 34, y + 5)
-                g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
+                if self.showingServerScores then
+                    -- Global leaderboard: player name + time on the right (unchanged)
+                    g.drawText(getEntryName(entry), rowX + 34, y + 5)
+                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
+                else
+                    -- Local leaderboard: no player name, time centered, crown on rank 1
+                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + math.floor(rowW / 2), y + 5, kTextAlignment.center)
+                    if rank == 1 and self.crownImage then
+                        local cw, ch = self.crownImage:getSize()
+                        local cx = rowX + rowW - cw - 4
+                        local cy = y + math.floor((rowH - ch) / 2) + 1
+                        self.crownImage:draw(cx, cy)
+                    end
+                end
             end
         end
     end
