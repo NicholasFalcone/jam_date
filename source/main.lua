@@ -592,7 +592,7 @@ function drawRoad()
 
             local spawnRoll = math.abs(math.sin(rowIndex * 12.9898 + 78.233))
             local bothRoll = math.abs(math.sin(rowIndex * 39.3467 + 11.135))
-            local sideRoll = math.abs(math.sin(rowIndex * 73.156 + 52.77))
+            local sideRoll = (math.abs(math.sin(rowIndex * 73.156 + 52.77)) * 43758.5453) % 1.0  -- uniform [0,1] hash for balanced left/right
 
             local drawLeft = false
             local drawRight = false
@@ -658,12 +658,17 @@ end
 function createRoadsidePropState()
     local images = getRoadsidePropImages()
     local image = nil
+    local imageIndex = nil
     if images and #images > 0 then
-        image = images[math.random(1, #images)]
+        imageIndex = math.random(1, #images)
+        image = images[imageIndex]
     end
 
+    -- Prop5 is index 5 in the list; it should not have random scale
+    local randomScale = (imageIndex == 5) and 1.0 or (0.6 + math.random() * 0.4)
+
     return {
-        scale = 0.6 + math.random() * 0.4,
+        scale = randomScale,
         image = image
     }
 end
