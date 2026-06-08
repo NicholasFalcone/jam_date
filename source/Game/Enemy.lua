@@ -108,8 +108,12 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     end
 
     if not self.isDead then
-        self.distance -= (self.speed or 0.005)
-
+    local spawnDist  = 0.85          -- matches self.distance initial value
+    local goalDist   = self.enemyGoalPosition  -- -0.2
+    local t = 1.0 - ((self.distance - goalDist) / (spawnDist - goalDist))
+    t = math.max(0, math.min(1, t))  -- clamp 0→1
+        local currentSpeed = self.speed * (1.0 - t * 0.5)
+    self.distance -= currentSpeed
         -- Advance ping-pong animation
         self.animTick += 1
         if self.animTick >= self.animSpeed then
