@@ -12,19 +12,16 @@ local function syncBowFrame(self)
 end
 
 -- ── Reload-sound helpers ────────────────────────────────────────────────────
-local function startReloadSound(self, now)
+local function startReloadSound(self)
 	if self.Bow_reloadPlaying then return end
-	self.Bow_reloadPlayStart = now
 	if self.Bow_sfxReload then
-		local offset = self.Bow_reloadOffset or 0
-		pcall(function() self.Bow_sfxReload:play(1, offset) end)
+		pcall(function() self.Bow_sfxReload:play(1) end)
 	end
 	self.Bow_reloadPlaying = true
 end
 
-local function pauseReloadSound(self, now)
+local function stopReloadSound(self)
 	if not self.Bow_reloadPlaying then return end
-	self.Bow_reloadOffset = (self.Bow_reloadOffset or 0) + (now - (self.Bow_reloadPlayStart or now))
 	if self.Bow_sfxReload then
 		pcall(function() self.Bow_sfxReload:stop() end)
 	end
@@ -32,14 +29,9 @@ local function pauseReloadSound(self, now)
 end
 
 local function resetReloadSound(self)
-	if self.Bow_sfxReload then
-		pcall(function() self.Bow_sfxReload:stop() end)
-	end
-	self.Bow_reloadPlaying = false
-	self.Bow_reloadOffset  = 0
+	stopReloadSound(self)
 end
 -- ───────────────────────────────────────────────────────────────────────────
-
 local function triggerFire(self)
 	resetReloadSound(self)                 -- bow released, reset reload position
 	self:fire(self.Bow_AmmoCost or 1)
@@ -126,46 +118,48 @@ local function onCrankChange(self, change)
 	self.Bow_lastCrankDelta = change or 0
 
 	if self.weaponState == "firing" or (self.Bow_fireTicks and self.Bow_fireTicks > 0) then
+		stopReloadSound(self)
 		return
 	end
 
 	local threshold = self.Bow_StillThreshold or 1.25
-	if not change or math.abs(change) <= threshold then
-		pauseReloadSound(self, now)    -- crank idle → pause reload sfx
-		return
-	end
 
-	self.Bow_lastMovementTime = now
+	if change and change < -threshold then
+		self.Bow_lastMovementTime = now
 
-	if self.Bow_isCharged then
-		self:setState("cocked")
-		return
-	end
+		if self.Bow_isCharged then
+			self:setState("cocked")
+			return
+		end
 
-	if change < -threshold then
-		startReloadSound(self, now)    -- actively drawing → play/resume reload sfx
+		startReloadSound(self)  -- just play from start each stroke
 		self.Bow_chargeProgress = math.min(self.Bow_ChargeArc or 180, (self.Bow_chargeProgress or 0) + math.abs(change))
 		if self.Bow_chargeProgress >= (self.Bow_ChargeArc or 180) then
 			self.Bow_isCharged = true
 			self.Bow_chargeProgress = self.Bow_ChargeArc or 180
 			self:setState("cocked")
-			pauseReloadSound(self, now)  -- fully drawn → pause (fire will reset)
+			stopReloadSound(self)
 		else
 			self:setState("winding")
 		end
-	else
-		pauseReloadSound(self, now)    -- releasing → pause reload sfx
+	elseif change and change > threshold then
+		self.Bow_lastMovementTime = now
+		stopReloadSound(self)
 		self.Bow_chargeProgress = math.max(0, (self.Bow_chargeProgress or 0) - math.abs(change) * 0.5)
 		if self.Bow_chargeProgress <= 0 then
-			resetReloadSound(self)       -- fully released → reset to beginning
 			self:setState("idle")
 		else
 			self:setState("winding")
 		end
+	else
+		local idleTime = now - (self.Bow_lastMovementTime or now)
+		if idleTime > 0.08 then
+			stopReloadSound(self)
+		end
 	end
+
 	syncBowFrame(self)
 end
-
 local function draw(self, cx, cy)
 	local isFiring = (self.Bow_fireTicks and self.Bow_fireTicks > 0) or (self.weaponState == "firing")
 	if isFiring then
