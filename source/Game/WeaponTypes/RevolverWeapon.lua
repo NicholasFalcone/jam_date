@@ -17,7 +17,7 @@ local function configure(self)
 	self.Revolver_reloadFrames = self:loadFrameSequence("Sprites/Gun viewmodel/REV_reload/REV_reload - ", {1, 2, 3, 4, 5, 6, 7, 8})
 	self.Revolver_shootFrames = self:loadFrameSequence("Sprites/Gun viewmodel/REV_Shoot/REV_Shoot - ", {9, 10, 11})
 	self.Revolver_idleFrameIndex = 1
-	self.Damage = 100
+	self.Damage = 200
 	self.Revolver_ArcSize = 90
 	self.Revolver_stage = 0
 	self.Revolver_accum = 0
@@ -186,7 +186,7 @@ WeaponTypes.register({
 	id = "Revolver",
 	startingAmmoMin = 8,
 	startingAmmoMax = 14,
-	hitMode = "closest_once",
+	hitMode = "all_once",
 	configure = configure,
 	update = update,
 	onCrankChange = onCrankChange,
