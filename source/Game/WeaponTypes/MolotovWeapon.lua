@@ -26,8 +26,8 @@ local function configure(self)
 	self.Molotov_ShakeCountRequired = 6
 	self.Molotov_MinShakeArc = 15
 	self.Molotov_AmmoCost = 1
-	self.Molotov_HitRadius = 28
 	self.Molotov_ReticleScale = 1.5
+	self.Molotov_HitRadius = 14  -- small hitbox, independent of reticle visual size
 	self.Molotov_ProjectileSpeedY = 5
 	self.Molotov_ProjectileSpawnY = 220
 	self.Molotov_shakesCompleted = 0

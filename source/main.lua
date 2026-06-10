@@ -189,8 +189,10 @@ local function processMolotovProjectiles()
                 end
             end
 
-            for _, e in ipairs(hitEnemies) do
-                e:applyHit(projectile.damage)
+            -- Cap at 3 enemies per throw
+            local hitCap = 3
+            for i2 = 1, math.min(hitCap, #hitEnemies) do
+                hitEnemies[i2]:applyHit(projectile.damage)
             end
 
             table.remove(molotovProjectiles, i)
