@@ -272,6 +272,35 @@ function updateEnemies()
             local idx = freeIndices[i]
             local lane = spawnPoints[idx]
             local enemyType = EnemyTypes.rollSpawnType()
+
+            -- Enemy_02 (raider): spawn in one of 3 fixed centre lanes so it
+            -- arrives in screen sections 2-3-4 (out of 5) at the player position.
+            -- Lane fractions are based on w=300px at distance=0:
+            --   section 2 center → x=120 → lane=-0.267
+            --   section 3 center → x=200 → lane= 0.000
+            --   section 4 center → x=280 → lane=+0.267
+            if enemyType.id == "raider" then
+                -- Restrict raider to centre slots (indices 2-5 of 6) = screen sections 2-3-4
+                local centreIndices = {2, 3, 4, 5}
+                -- shuffle
+                for ci = #centreIndices, 2, -1 do
+                    local cj = math.random(1, ci)
+                    centreIndices[ci], centreIndices[cj] = centreIndices[cj], centreIndices[ci]
+                end
+                -- pick first free centre slot
+                local picked = false
+                for _, ci in ipairs(centreIndices) do
+                    if not occupied[ci] then
+                        occupied[ci] = true
+                        idx  = ci
+                        lane = spawnPoints[ci]
+                        picked = true
+                        break
+                    end
+                end
+                -- if all centre slots taken, keep original slot as fallback
+            end
+
             local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end

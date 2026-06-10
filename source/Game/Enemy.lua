@@ -86,6 +86,14 @@ function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultipli
     self.oscillationTime = math.random() * math.pi * 2  -- Inizia da un punto casuale nel ciclo
     self.oscillationOffset = 0
 
+    -- Center pull: raider moves toward a fixed screen X (sections 2/3/4)
+    self.centerPullEnabled = resolvedType.centerPullEnabled or false
+    if self.centerPullEnabled then
+        -- Pick randomly among section centers: 120 (sec2), 200 (sec3), 280 (sec4)
+        local targets = {120, 200, 280}
+        self.centerPullTargetX = targets[math.random(1, #targets)]
+    end
+
     -- Load explosion sequence (Frames 1 to 5)
     if not explosionFramesCache then
         explosionFramesCache = {}
@@ -125,6 +133,22 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
         if self.oscillationEnabled then
             self.oscillationTime += self.oscillationFrequency * 0.05
             self.oscillationOffset = math.sin(self.oscillationTime) * self.oscillationAmplitude
+        end
+
+        -- Center pull: keep raider on a fixed screen-X target by back-calculating
+        -- the required lane fraction from the current road width each frame.
+        -- targetX is chosen at spawn from sections 2/3/4 (x=120,200,280).
+        if self.centerPullEnabled and self.centerPullTargetX then
+            local horizonY2 = 112
+            local groundY2  = 240
+            local scale2 = 1.0 - self.distance
+            local sq2    = scale2 * scale2
+            local topW2  = 30
+            local botW2  = 300
+            local w2 = topW2 + sq2 * (botW2 - topW2)
+            if w2 > 0 then
+                self.lane = (self.centerPullTargetX - 200) / w2
+            end
         end
         
         if self.distance <= self.enemyGoalPosition then
