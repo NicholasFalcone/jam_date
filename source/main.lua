@@ -130,8 +130,10 @@ end
 local spawnPoints = computeSpawnPoints()
 
 local weaponTypes = WeaponTypes.getIds()
-local currentWeaponIndex = 1
+local currentWeaponIndex = math.random(1, #weaponTypes)
 local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
+-- Randomize starting ammo on first boot too
+currentWeapon:setType(weaponTypes[currentWeaponIndex], WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex]))
 
 local UI = UI()
 UI:setGameManager(gameManager)
