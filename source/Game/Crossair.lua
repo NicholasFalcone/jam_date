@@ -14,6 +14,18 @@ function Crossair:init()
     self.flamethrowerReticle = gfx.image.new("Sprites/Crossair_flamethrower")
     self.molotovReticle      = gfx.image.new("Sprites/Crossair_molotov")
 
+    -- Molotov hit animation frames (Crossair_molotov_01 … _08)
+    self.molotovHitFrames = {}
+    for i = 1, 8 do
+        local suffix = i < 10 and ("0" .. i) or tostring(i)
+        local img = gfx.image.new("Sprites/Crossair_molotov_" .. suffix)
+        if img then self.molotovHitFrames[i] = img end
+    end
+    self.molotovHitAnimActive = false
+    self.molotovHitAnimFrame  = 1
+    self.molotovHitAnimTick   = 0
+    self.molotovHitAnimSpeed  = 1  -- ticks per frame (fastest)
+
     -- Flamethrower reticle flag
     self.flamethrowerActive = false
     -- Molotov reticle flag
@@ -90,6 +102,15 @@ function Crossair:resetBowAnim()
     self.bowAnimFrame = 1
 end
 
+-- ─── Molotov hit animation ─────────────────────────────────────────────────
+
+function Crossair:triggerMolotovHitAnim()
+    if #self.molotovHitFrames == 0 then return end
+    self.molotovHitAnimActive = true
+    self.molotovHitAnimFrame  = 1
+    self.molotovHitAnimTick   = 0
+end
+
 -- ─── Movement ────────────────────────────────────────────────────────────────
 
 function Crossair:move(x, y)
@@ -114,23 +135,54 @@ end
 -- ─── Draw ────────────────────────────────────────────────────────────────────
 
 function Crossair:draw()
-    local reticle, scale = self:getActiveReticle()
-
-    if reticle then
-        local rw, rh = reticle:getSize()
-        local scaledWidth  = rw * scale
-        local scaledHeight = rh * scale
-        local dx = math.floor(self.x - (scaledWidth  / 2) + 0.5)
-        local dy = math.floor(self.y - (scaledHeight / 2) + 0.5)
-
-        if scale ~= 1 and reticle.drawScaled then
-            reticle:drawScaled(dx, dy, scale, scale)
-        else
-            reticle:draw(dx, dy)
+    -- During molotov hit animation: skip normal reticle and dot entirely
+    if not self.molotovHitAnimActive then
+        local reticle, scale = self:getActiveReticle()
+        if reticle then
+            local rw, rh = reticle:getSize()
+            local scaledWidth  = rw * scale
+            local scaledHeight = rh * scale
+            local dx = math.floor(self.x - (scaledWidth  / 2) + 0.5)
+            local dy = math.floor(self.y - (scaledHeight / 2) + 0.5)
+            if scale ~= 1 and reticle.drawScaled then
+                reticle:drawScaled(dx, dy, scale, scale)
+            else
+                reticle:draw(dx, dy)
+            end
         end
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillCircleAtPoint(self.x, self.y, 2)
     end
 
-    -- Small central dot
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillCircleAtPoint(self.x, self.y, 2)
+    -- Molotov hit animation overlay (only while molotov is active weapon)
+    if self.molotovHitAnimActive then
+        if not self.molotovActive then
+            -- Weapon switched away — cancel immediately
+            self.molotovHitAnimActive = false
+        elseif #self.molotovHitFrames > 0 then
+            local hitFrame = self.molotovHitFrames[self.molotovHitAnimFrame]
+            if hitFrame then
+                local scale = self.reticleScale or 1
+                local hw, hh = hitFrame:getSize()
+                local scaledW = hw * scale
+                local scaledH = hh * scale
+                local dx = math.floor(self.x - scaledW / 2)
+                local dy = math.floor(self.y - scaledH / 2)
+                if scale ~= 1 and hitFrame.drawScaled then
+                    hitFrame:drawScaled(dx, dy, scale, scale)
+                else
+                    hitFrame:draw(dx, dy)
+                end
+            end
+            -- Advance animation
+            self.molotovHitAnimTick = self.molotovHitAnimTick + 1
+            if self.molotovHitAnimTick >= (self.molotovHitAnimSpeed or 2) then
+                self.molotovHitAnimTick = 0
+                self.molotovHitAnimFrame = self.molotovHitAnimFrame + 1
+            end
+            if self.molotovHitAnimFrame > #self.molotovHitFrames then
+                self.molotovHitAnimActive = false
+            end
+        end
+    end
 end

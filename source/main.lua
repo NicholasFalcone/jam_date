@@ -194,6 +194,10 @@ local function processMolotovProjectiles()
             for i2 = 1, math.min(hitCap, #hitEnemies) do
                 hitEnemies[i2]:applyHit(projectile.damage)
             end
+            -- Trigger crosshair hit animation when projectile lands
+            if Crossair and Crossair.triggerMolotovHitAnim then
+                Crossair:triggerMolotovHitAnim()
+            end
 
             table.remove(molotovProjectiles, i)
         end
