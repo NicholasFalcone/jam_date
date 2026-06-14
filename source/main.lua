@@ -79,7 +79,7 @@ local difficultyRampTime = 300 -- seconds to reach near-max difficulty
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
 local enemySpeedReference = 0.005
-local debugManualRoll = true
+local debugManualRoll = false
 
 --- ROAD
 local roadScrollOffset = 0
