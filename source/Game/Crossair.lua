@@ -111,6 +111,19 @@ function Crossair:triggerMolotovHitAnim()
     self.molotovHitAnimTick   = 0
 end
 
+-- ─── Weapon switch reset ───────────────────────────────────────────────────
+
+-- Call this at the start of every weapon configure() to clear stale flags
+function Crossair:resetAllFlags()
+    self.bowActive          = false
+    self.bowAnimFrame       = 1
+    self.flamethrowerActive = false
+    self.molotovActive      = false
+    self.molotovHitAnimActive = false
+    self.hitRadius          = 0
+    self.reticleScale       = 1
+end
+
 -- ─── Movement ────────────────────────────────────────────────────────────────
 
 function Crossair:move(x, y)

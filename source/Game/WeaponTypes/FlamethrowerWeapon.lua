@@ -28,6 +28,9 @@ local function isStable(self)
 end
 
 local function configure(self)
+	if self.crosshair and self.crosshair.resetAllFlags then
+		self.crosshair:resetAllFlags()
+	end
 	self.maxWindUp = 0
 	self.maxCooldown = 0
 	self.autoFire = true
