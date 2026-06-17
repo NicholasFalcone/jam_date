@@ -23,6 +23,9 @@ local gameManager = GameManager()
 
 -- Game reset logic: called by gameManager when Play is pressed, before the transition.
 gameManager.onPlayStart = function()
+    for _, e in ipairs(enemies) do
+        Enemy.release(e)
+    end
     enemies = {}
     clearMolotovProjectiles()
     local now = playdate.getElapsedTime()
@@ -309,7 +312,7 @@ function updateEnemies()
                 -- if all centre slots taken, keep original slot as fallback
             end
 
-            local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
+            local e = Enemy.get(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end
 
@@ -410,8 +413,10 @@ function updateEnemies()
             end
             e:die()
             table.remove(enemies, i)
+            Enemy.release(e)
         elseif e.distance <= -0.2 then
             table.remove(enemies, i)
+            Enemy.release(e)
         end
     end
 
@@ -498,6 +503,9 @@ function playdate.update()
             -- Play click sound on confirm
             if gameManager.SFX_UIClick then pcall(function() gameManager.SFX_UIClick:play(1) end) end
             -- Shared cleanup
+            for _, e in ipairs(enemies) do
+                Enemy.release(e)
+            end
             enemies = {}
             clearMolotovProjectiles()
             needsWeaponRoll = false
