@@ -79,7 +79,7 @@ local difficultyRampTime = 300 -- seconds to reach near-max difficulty
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
 local enemySpeedReference = 0.005
-local debugManualRoll = true
+local debugManualRoll = false
 
 --- ROAD
 local roadScrollOffset = 0
@@ -131,9 +131,8 @@ local spawnPoints = computeSpawnPoints()
 
 local weaponTypes = WeaponTypes.getIds()
 local currentWeaponIndex = math.random(1, #weaponTypes)
-local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
--- Randomize starting ammo on first boot too
-currentWeapon:setType(weaponTypes[currentWeaponIndex], WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex]))
+-- Create weapon with correct random ammo in a single configure pass
+local currentWeapon = Weapon(weaponTypes[currentWeaponIndex], WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex]), Crossair)
 
 local UI = UI()
 UI:setGameManager(gameManager)
