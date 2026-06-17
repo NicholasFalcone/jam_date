@@ -23,9 +23,6 @@ local gameManager = GameManager()
 
 -- Game reset logic: called by gameManager when Play is pressed, before the transition.
 gameManager.onPlayStart = function()
-    for _, e in ipairs(enemies) do
-        Enemy.release(e)
-    end
     enemies = {}
     clearMolotovProjectiles()
     local now = playdate.getElapsedTime()
@@ -82,7 +79,7 @@ local difficultyRampTime = 300 -- seconds to reach near-max difficulty
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
 local enemySpeedReference = 0.005
-local debugManualRoll = false
+local debugManualRoll = true
 
 --- ROAD
 local roadScrollOffset = 0
@@ -312,7 +309,7 @@ function updateEnemies()
                 -- if all centre slots taken, keep original slot as fallback
             end
 
-            local e = Enemy.get(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
+            local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end
 
@@ -413,10 +410,8 @@ function updateEnemies()
             end
             e:die()
             table.remove(enemies, i)
-            Enemy.release(e)
         elseif e.distance <= -0.2 then
             table.remove(enemies, i)
-            Enemy.release(e)
         end
     end
 
@@ -503,9 +498,6 @@ function playdate.update()
             -- Play click sound on confirm
             if gameManager.SFX_UIClick then pcall(function() gameManager.SFX_UIClick:play(1) end) end
             -- Shared cleanup
-            for _, e in ipairs(enemies) do
-                Enemy.release(e)
-            end
             enemies = {}
             clearMolotovProjectiles()
             needsWeaponRoll = false
@@ -686,7 +678,9 @@ function getRoadsidePropImages()
             "Sprites/Prop2",
             "Sprites/Prop3",
             "Sprites/Prop4",
-            "Sprites/Prop5"
+            "Sprites/Prop5",
+            "Sprites/Prop6",
+            "Sprites/Prop7"
         }
 
         for _, path in ipairs(propPaths) do
