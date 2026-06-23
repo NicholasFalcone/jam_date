@@ -739,37 +739,26 @@ function GameManager:drawRollingScreen(g)
 		g.drawTextAligned(self.rolledWeapon, 116, 112, kTextAlignment.center)
 	end
 	
-	-- Draw ammo dice (dots only, no squares) - weapon dice removed
+	-- Draw ammo dice (dots only, no squares) - all 4 in a single row
+	-- TUNE: change diceX, diceY to move the row; diceSpacing to space them out
 	if self.ammoDice and #self.ammoDice == 4 then
-		local baseX = 248
-		local baseY = 71
-		local spacing = 65
+		local diceX = 30       -- X of first die center
+		local diceY = 198      -- Y of all dice
+		local diceSpacing = 47 -- pixels between die centers
 
-		self.ammoDice[1]:draw(baseX, baseY, true, false, true)  -- 5th param = dotsOnly
-		self.ammoDice[2]:draw(baseX + spacing, baseY, true, false, true)
-		self.ammoDice[3]:draw(baseX, baseY + spacing, true, false, true)
-		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false, true)
+		self.ammoDice[1]:draw(diceX, diceY, true, false, true)
+		self.ammoDice[2]:draw(diceX + diceSpacing, diceY, true, false, true)
+		self.ammoDice[3]:draw(diceX + diceSpacing*2, diceY, true, false, true)
+		self.ammoDice[4]:draw(diceX + diceSpacing*3, diceY, true, false, true)
 	end
 
-	-- Display ammo text with white background
-	local ammoText = "Ammo: " .. self.rolledAmmo
-	
-	-- ADJUST POSITION HERE:
-	local textX = 280  -- Center X position (200 = screen center)
-	local textY = 200  -- Y position
-	
-	-- Rectangle dimensions
-	local rectWidth = 100
-	local rectHeight = 20
-	local rectPadding = 5
-	
-	-- Draw white rectangle background (centered on text)
-	g.setColor(g.kColorWhite)
-	g.fillRect(textX - rectWidth/2 - rectPadding, textY - 2, rectWidth + rectPadding*2, rectHeight)
-	
-	-- Draw black text centered on top
+	-- Display ammo text inside the card box
+	-- TUNE: change ammoTextX, ammoTextY to reposition
+	local ammoText = "Ammo: " .. tostring(self.rolledAmmo)
+	local ammoTextX = 297  -- center X of the text
+	local ammoTextY = 190  -- Y of the text
 	g.setColor(g.kColorBlack)
-	g.drawTextAligned(ammoText, textX, textY, kTextAlignment.center)
+	g.drawTextAligned(ammoText, ammoTextX, ammoTextY, kTextAlignment.center)
 end
  
 function GameManager.getStateConstants()

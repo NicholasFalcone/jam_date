@@ -2,7 +2,7 @@ class('Dice').extends()
 
 local gfx = playdate.graphics
 
-local DICE_SIZE = 40
+local DICE_SIZE = 30
 local DICE_HALF = DICE_SIZE / 2
 local DICE_QUARTER = math.floor(DICE_SIZE * 0.25)
 local DICE_EIGHTH = math.floor(DICE_SIZE * 0.125)
