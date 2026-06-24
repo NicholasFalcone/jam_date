@@ -742,7 +742,7 @@ function GameManager:drawRollingScreen(g)
 	-- Draw ammo dice (dots only, no squares) - all 4 in a single row
 	-- TUNE: change diceX, diceY to move the row; diceSpacing to space them out
 	if self.ammoDice and #self.ammoDice == 4 then
-		local diceX = 30       -- X of first die center
+		local diceX = 31       -- X of first die center
 		local diceY = 198      -- Y of all dice
 		local diceSpacing = 47 -- pixels between die centers
 
