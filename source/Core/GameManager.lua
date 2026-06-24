@@ -332,9 +332,12 @@ function GameManager:onRunningEnter()
 		self.enemiesDefeated = 0
 		self.playerHealth = self.maxPlayerHealth
 		
-		if self.mainMusic then self.mainMusic:stop() end
-		self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
-		if self.mainMusic then self.mainMusic:play(0) end
+		-- Music_Game is already started in onRollingEnter; only reload if skipping the shake screen
+		if self.prevState ~= GAME_STATE.ROLLING then
+			if self.mainMusic then self.mainMusic:stop() end
+			self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
+			if self.mainMusic then self.mainMusic:play(0) end
+		end
 	end
 	-- When returning from ROLLING, keep existing stats (timer continues)
 end
@@ -342,7 +345,15 @@ end
 function GameManager:onRollingEnter()
 	
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
-	
+
+	-- Start gameplay music on the shake screen only for new games (Play or Restart),
+	-- not for mid-run weapon rerolls where music should continue uninterrupted
+	if self.rollingIsNewGame then
+		if self.mainMusic then self.mainMusic:stop() end
+		self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
+		if self.mainMusic then self.mainMusic:play(0) end
+	end
+
 	if playdate.startAccelerometer then
 		pcall(function() playdate.startAccelerometer() end)
 	end
