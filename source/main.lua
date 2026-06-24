@@ -30,11 +30,11 @@ gameManager.onPlayStart = function()
     spawnN = spawnNStart
     spawnT = spawnTStart
     enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
-    needsWeaponRoll = false
-    currentWeaponIndex = math.random(1, #weaponTypes)
-    local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
-    currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
+    needsWeaponRoll = true  -- weapon assigned by dice roll after transition
     Crossair:resetToCenter()
+    if currentWeapon and currentWeapon.stopAllSounds then
+        currentWeapon:stopAllSounds()
+    end
 end
 
 -- Camera shake variables
@@ -516,11 +516,12 @@ function playdate.update()
             Crossair:resetToCenter()
 
             if gameManager.gameOverIndex == 2 then
-                -- "Main Menu" → play transition; setState fires when animation ends
+                -- "Main Menu" → transition back to menu
                 gameManager:startMenuTransition()
             else
-                -- "Play Again" → go straight to running
-                gameManager:setState("idle")
+                -- "Play Again" → restart transition then dice roll
+                needsWeaponRoll = true
+                gameManager:startRestartTransition()
             end
         end
     end

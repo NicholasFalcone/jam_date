@@ -85,6 +85,17 @@ function GameManager:init()
 	self.goTransitionTick   = 0
 	self.goTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
 
+	-- Restart transition: reuse Transition_GO_to_Menu frames 01-07
+	self.restartTransitionFrames = {}
+	for i = 1, 7 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.restartTransitionFrames[i] = gfx.image.new("images/ui/Transition_GO_to_Menu/Transition_GO_to_Menu_" .. suffix)
+	end
+	self.restartTransitionActive = false
+	self.restartTransitionFrame  = 1
+	self.restartTransitionTick   = 0
+	self.restartTransitionSpeed  = 3  -- same speed as menu transition
+
 	-- Transition from main menu to play (1-9), 9 frames
 	self.playTransitionFrames = {}
 	for i = 1, 9 do
@@ -251,6 +262,7 @@ end
 
 function GameManager:isTransitioning()
 	return self.menuTransitionActive == true
+		or self.restartTransitionActive == true
 end
 
 function GameManager:startGoTransition()
@@ -271,6 +283,16 @@ end
 
 function GameManager:isPlayTransitioning()
 	return self.playTransitionActive == true
+end
+
+function GameManager:startRestartTransition()
+	self.restartTransitionActive = true
+	self.restartTransitionFrame  = 1
+	self.restartTransitionTick   = 0
+end
+
+function GameManager:isRestartTransitioning()
+	return self.restartTransitionActive == true
 end
 
 -- Called when the Play button is pressed in the menu.
@@ -300,8 +322,10 @@ function GameManager:onIdleEnter()
 end
 
 function GameManager:onRunningEnter()
-	-- Only reset game state when starting a new game (from IDLE or GAME_OVER), not when returning from ROLLING
-	if self.prevState == GAME_STATE.IDLE or self.prevState == GAME_STATE.GAME_OVER then
+	-- Reset stats on new game: from IDLE/GAME_OVER, or after the opening dice roll
+	if self.prevState == GAME_STATE.IDLE or self.prevState == GAME_STATE.GAME_OVER
+		or (self.prevState == GAME_STATE.ROLLING and self.rollingIsNewGame) then
+		self.rollingIsNewGame = false
 		self.score = 0
 		self.waveCount = 1
 		self.timeAlive = 0
@@ -495,7 +519,8 @@ function GameManager:drawIdleScreen(g)
 
 		if self.playTransitionFrame > 9 then  -- all 9 frames played
 			self.playTransitionActive = false
-			self:setState(GAME_STATE.RUNNING)  -- now actually start the game
+			self.rollingIsNewGame = true
+			self:setState(GAME_STATE.ROLLING)  -- dice roll before gameplay
 		end
 		return
 	end
@@ -568,7 +593,32 @@ function GameManager:drawGameOverScreen(g)
 		return
 	end
 	-- ───────────────────────────────────────────────────────────────────
-	-- ── Menu transition animation ──────────────────────────────────────────
+	-- ── Restart transition animation (GO → frame 07 → rolling) ────────────
+	if self.restartTransitionActive then
+		local img = self.restartTransitionFrames[self.restartTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.restartTransitionTick = self.restartTransitionTick + 1
+		if self.restartTransitionTick >= (self.restartTransitionSpeed or 1) then
+			self.restartTransitionTick = 0
+			self.restartTransitionFrame = self.restartTransitionFrame + 1
+		end
+
+		if self.restartTransitionFrame > 7 then  -- all 7 frames played
+			self.restartTransitionActive = false
+			self.rollingIsNewGame = true
+			self:setState(GAME_STATE.ROLLING)  -- dice roll before gameplay resumes
+		end
+		return
+	end
+	-- ──────────────────────────────────────────────────────────────────────
+
+	-- ── Menu transition animation ──────────────────────────────────────────────────────────────────
 	-- Runs when "Main Menu" is selected; blocks all other input/drawing.
 	if self.menuTransitionActive then
 		local img = self.menuTransitionFrames[self.menuTransitionFrame]
