@@ -11,7 +11,29 @@ local function syncBowFrame(self)
 	end
 end
 
+-- ── Reload-sound helpers ────────────────────────────────────────────────────
+local function startReloadSound(self)
+	if self.Bow_reloadPlaying then return end
+	if self.Bow_sfxReload then
+		pcall(function() self.Bow_sfxReload:play(1) end)
+	end
+	self.Bow_reloadPlaying = true
+end
+
+local function stopReloadSound(self)
+	if not self.Bow_reloadPlaying then return end
+	if self.Bow_sfxReload then
+		pcall(function() self.Bow_sfxReload:stop() end)
+	end
+	self.Bow_reloadPlaying = false
+end
+
+local function resetReloadSound(self)
+	stopReloadSound(self)
+end
+-- ───────────────────────────────────────────────────────────────────────────
 local function triggerFire(self)
+	resetReloadSound(self)                 -- bow released, reset reload position
 	self:fire(self.Bow_AmmoCost or 1)
 	local shootFrames = self.Bow_shootFrames
 	local totalNumFrames = (shootFrames and #shootFrames) or 4
@@ -28,6 +50,9 @@ local function triggerFire(self)
 end
 
 local function configure(self)
+	if self.crosshair and self.crosshair.resetAllFlags then
+		self.crosshair:resetAllFlags()
+	end
 	self.maxWindUp = 0
 	self.maxCooldown = 0
 	self.autoFire = false
@@ -44,7 +69,11 @@ local function configure(self)
 	self.Bow_fireTicks = 0
 	self.Bow_lastMovementTime = playdate.getElapsedTime()
 	self.Bow_lastCrankDelta = 0
-	self.Bow_sfxShot = self.audioManager:loadSample("sounds/revolver_shot")
+	self.Bow_sfxShoot  = self.audioManager:loadSample("sounds/SFX_Bow_Shoot")
+	self.Bow_sfxReload = self.audioManager:loadSample("sounds/SFX_Bow_Reloading")
+	self.Bow_reloadOffset   = 0
+	self.Bow_reloadPlaying  = false
+	self.Bow_reloadPlayStart = nil
 	self.hitboxScale = 1
 
 	if self.crosshair then
@@ -92,41 +121,48 @@ local function onCrankChange(self, change)
 	self.Bow_lastCrankDelta = change or 0
 
 	if self.weaponState == "firing" or (self.Bow_fireTicks and self.Bow_fireTicks > 0) then
+		stopReloadSound(self)
 		return
 	end
 
 	local threshold = self.Bow_StillThreshold or 1.25
-	if not change or math.abs(change) <= threshold then
-		return
-	end
 
-	self.Bow_lastMovementTime = now
+	if change and change < -threshold then
+		self.Bow_lastMovementTime = now
 
-	if self.Bow_isCharged then
-		self:setState("cocked")
-		return
-	end
+		if self.Bow_isCharged then
+			self:setState("cocked")
+			return
+		end
 
-	if change < -threshold then
+		startReloadSound(self)  -- just play from start each stroke
 		self.Bow_chargeProgress = math.min(self.Bow_ChargeArc or 180, (self.Bow_chargeProgress or 0) + math.abs(change))
 		if self.Bow_chargeProgress >= (self.Bow_ChargeArc or 180) then
 			self.Bow_isCharged = true
 			self.Bow_chargeProgress = self.Bow_ChargeArc or 180
 			self:setState("cocked")
+			stopReloadSound(self)
 		else
 			self:setState("winding")
 		end
-	else
+	elseif change and change > threshold then
+		self.Bow_lastMovementTime = now
+		stopReloadSound(self)
 		self.Bow_chargeProgress = math.max(0, (self.Bow_chargeProgress or 0) - math.abs(change) * 0.5)
 		if self.Bow_chargeProgress <= 0 then
 			self:setState("idle")
 		else
 			self:setState("winding")
 		end
+	else
+		local idleTime = now - (self.Bow_lastMovementTime or now)
+		if idleTime > 0.08 then
+			stopReloadSound(self)
+		end
 	end
+
 	syncBowFrame(self)
 end
-
 local function draw(self, cx, cy)
 	local isFiring = (self.Bow_fireTicks and self.Bow_fireTicks > 0) or (self.weaponState == "firing")
 	if isFiring then
@@ -167,8 +203,8 @@ local function draw(self, cx, cy)
 end
 
 local function playFireSound(self)
-	if self.Bow_sfxShot then
-		pcall(function() self.Bow_sfxShot:play(1) end)
+	if self.Bow_sfxShoot then
+		pcall(function() self.Bow_sfxShoot:play(1) end)
 	end
 end
 
@@ -181,7 +217,7 @@ local function hasActiveFireState(self)
 end
 
 local function stopAllSounds(self)
-	-- Deactivate bow reticle when switching away from this weapon
+	resetReloadSound(self)
 	if self.crosshair then
 		self.crosshair.bowActive = false
 		self.crosshair.bowAnimFrame = 1

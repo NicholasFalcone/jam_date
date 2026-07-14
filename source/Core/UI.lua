@@ -40,7 +40,8 @@ function UI:init()
 
     -- Load page change sound
     local audioManager = AudioManager()
-    self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_ChangePage    = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_MenuHighlight = audioManager:loadSample("sounds/SFX_Menu_Highlight")
 
     -- ==========================================
     -- ROBUST BACKGROUND LOADER
@@ -199,8 +200,10 @@ function UI:update()
     if self.screen == "menu" then
         if playdate.buttonJustPressed(playdate.kButtonUp) or playdate.buttonJustPressed(playdate.kButtonLeft) then
             self.menuIndex = wrapIndex(self.menuIndex - 1, #self.menuOptions)
+            pcall(function() self.SFX_MenuHighlight:play(1) end)
         elseif playdate.buttonJustPressed(playdate.kButtonDown) or playdate.buttonJustPressed(playdate.kButtonRight) then
             self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
+            pcall(function() self.SFX_MenuHighlight:play(1) end)
         end
 
         local crankDelta = playdate.getCrankChange()
@@ -209,10 +212,12 @@ function UI:update()
             while self.crankAccum >= self.crankStepDegMenu do
                 self.crankAccum = self.crankAccum - self.crankStepDegMenu
                 self.menuIndex = wrapIndex(self.menuIndex + 1, #self.menuOptions)
+                pcall(function() self.SFX_MenuHighlight:play(1) end)
             end
             while self.crankAccum <= -self.crankStepDegMenu do
                 self.crankAccum = self.crankAccum + self.crankStepDegMenu
                 self.menuIndex = wrapIndex(self.menuIndex - 1, #self.menuOptions)
+                pcall(function() self.SFX_MenuHighlight:play(1) end)
             end
         end
 
@@ -229,6 +234,7 @@ function UI:update()
     -- HOW TO PLAY (4 pages)
     if self.screen == "howto" then
         if playdate.buttonJustPressed(playdate.kButtonB) then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             return "back"
         end
 
@@ -257,6 +263,7 @@ function UI:update()
     -- CREDITS
     if self.screen == "credits" then
         if playdate.buttonJustPressed(playdate.kButtonB) then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             return "back"
         end
 
@@ -285,6 +292,7 @@ function UI:update()
     -- LEADERBOARD
     if self.screen == "leaderboard" then
         if playdate.buttonJustPressed(playdate.kButtonB) then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             return "back"
         end
 
@@ -456,7 +464,7 @@ function UI:draw(currentWeapon)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
         gfx.setColor(gfx.kColorBlack)
 
-        local startY = 130 
+        local startY = 110  -- moved up from 130 to center items in the open area of the background
         local lineH = 22
 
         for i, label in ipairs(self.menuOptions) do

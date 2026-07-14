@@ -2,11 +2,11 @@ class('Dice').extends()
 
 local gfx = playdate.graphics
 
-local DICE_SIZE = 40
+local DICE_SIZE = 32
 local DICE_HALF = DICE_SIZE / 2
 local DICE_QUARTER = math.floor(DICE_SIZE * 0.25)
 local DICE_EIGHTH = math.floor(DICE_SIZE * 0.125)
-local DICE_DOT_R = math.max(2, math.floor(DICE_SIZE * 0.08))
+local DICE_DOT_R = math.max(2, math.floor(DICE_SIZE * 0.12))
 
 local DOT_POSITIONS = {
     [1] = {{0, 0}},

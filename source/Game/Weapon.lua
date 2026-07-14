@@ -42,8 +42,13 @@ function Weapon:resetBaseState(ammo)
 	self.isShooting = false
 
 	if self.crosshair then
-		self.crosshair.hitRadius = 0
-		self.crosshair.reticleScale = 1
+		-- Reset ALL crosshair flags so no stale state leaks between weapons
+		if self.crosshair.resetAllFlags then
+			self.crosshair:resetAllFlags()
+		else
+			self.crosshair.hitRadius = 0
+			self.crosshair.reticleScale = 1
+		end
 		if self.crosshair.resetToCenter then
 			self.crosshair:resetToCenter()
 		end

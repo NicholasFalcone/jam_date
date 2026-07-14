@@ -60,7 +60,53 @@ function GameManager:init()
 	-- GAME OVER UI assets (put in: source/images/ui/)
 	self.gameOverBg = gfx.image.new("images/ui/GAME_OVER_3-dithered")
 	self.gameOverSelector = gfx.image.new("images/ui/Bullet_Revolver_White")
-	
+
+	-- Transition to main menu frames (01–11), always 11 slots
+	self.menuTransitionFrames = {}
+	for i = 1, 11 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.menuTransitionFrames[i] = gfx.image.new("images/ui/Transition_GO_to_Menu/Transition_GO_to_Menu_" .. suffix)
+	end
+	-- Transition state: inactive by default
+	self.menuTransitionActive = false
+	self.menuTransitionFrame  = 1
+	self.menuTransitionTick   = 0
+	self.menuTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
+
+	-- Transition from game to Game Over screen (01–10), 10 frames
+	self.goTransitionFrames = {}
+	for i = 1, 10 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.goTransitionFrames[i] = gfx.image.new("images/ui/Transition_Game_to_GO/Transition_Game_to_GO_" .. suffix)
+	end
+	-- GO transition state: inactive by default
+	self.goTransitionActive = false
+	self.goTransitionFrame  = 1
+	self.goTransitionTick   = 0
+	self.goTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
+
+	-- Restart transition: reuse Transition_GO_to_Menu frames 01-07
+	self.restartTransitionFrames = {}
+	for i = 1, 7 do
+		local suffix = i < 10 and ("0" .. i) or tostring(i)
+		self.restartTransitionFrames[i] = gfx.image.new("images/ui/Transition_GO_to_Menu/Transition_GO_to_Menu_" .. suffix)
+	end
+	self.restartTransitionActive = false
+	self.restartTransitionFrame  = 1
+	self.restartTransitionTick   = 0
+	self.restartTransitionSpeed  = 3  -- same speed as menu transition
+
+	-- Transition from main menu to play (1-9), 9 frames
+	self.playTransitionFrames = {}
+	for i = 1, 9 do
+		self.playTransitionFrames[i] = gfx.image.new("images/ui/Transition_MenuToPlay/Transition_Play_" .. tostring(i))
+	end
+	-- Play transition state: inactive by default
+	self.playTransitionActive = false
+	self.playTransitionFrame  = 1
+	self.playTransitionTick   = 0
+	self.playTransitionSpeed  = 3  -- ticks per frame (1 = fastest, higher = slower)
+
 	-- Rolling screen image
 	self.shakeItImage = gfx.image.new("images/ui/Shake_it")
 	
@@ -77,8 +123,10 @@ function GameManager:init()
 	self.gameOverIndex = 1 -- 1=Play Again, 2=Main Menu
 	self.gameOverCrankAccum = 0
 	self.gameOverCrankStepDeg = 18
-	self.SFX_RollingDice = audioManager:loadSample("sounds/SFX_DiceRoll")
-	self.SFX_GameOver = audioManager:loadSample("sounds/SFX_GameOver")
+	self.SFX_RollingDice   = audioManager:loadSample("sounds/SFX_DiceRoll")
+	self.SFX_GameOver      = audioManager:loadSample("sounds/SFX_GameOver")
+	self.SFX_UIClick       = audioManager:loadSample("sounds/SFX_UIClick")
+	self.SFX_MenuHighlight = audioManager:loadSample("sounds/SFX_Menu_Highlight")
 
 	-- Phase for rolling
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
@@ -206,6 +254,57 @@ function GameManager:isIdle() return self.currentState == GAME_STATE.IDLE end
 function GameManager:isPaused() return self.currentState == GAME_STATE.PAUSED end
 function GameManager:isRolling() return self.currentState == GAME_STATE.ROLLING end
 
+function GameManager:startMenuTransition()
+	self.menuTransitionActive = true
+	self.menuTransitionFrame  = 1
+	self.menuTransitionTick   = 0
+end
+
+function GameManager:isTransitioning()
+	return self.menuTransitionActive == true
+		or self.restartTransitionActive == true
+end
+
+function GameManager:startGoTransition()
+	self.goTransitionActive = true
+	self.goTransitionFrame  = 1
+	self.goTransitionTick   = 0
+end
+
+function GameManager:isGoTransitioning()
+	return self.goTransitionActive == true
+end
+
+function GameManager:startPlayTransition()
+	self.playTransitionActive = true
+	self.playTransitionFrame  = 1
+	self.playTransitionTick   = 0
+end
+
+function GameManager:isPlayTransitioning()
+	return self.playTransitionActive == true
+end
+
+function GameManager:startRestartTransition()
+	self.restartTransitionActive = true
+	self.restartTransitionFrame  = 1
+	self.restartTransitionTick   = 0
+end
+
+function GameManager:isRestartTransitioning()
+	return self.restartTransitionActive == true
+end
+
+-- Called when the Play button is pressed in the menu.
+-- main.lua sets self.onPlayStart to do game reset before the transition fires.
+function GameManager:onPlayPressed()
+	if self.playTransitionActive then return end  -- already transitioning
+	if self.onPlayStart then
+		pcall(function() self.onPlayStart() end)
+	end
+	self:startPlayTransition()
+end
+
 function GameManager:onIdleEnter()
 	self.score = 0
 	self.waveCount = 0
@@ -223,17 +322,22 @@ function GameManager:onIdleEnter()
 end
 
 function GameManager:onRunningEnter()
-	-- Only reset game state when starting a new game (from IDLE or GAME_OVER), not when returning from ROLLING
-	if self.prevState == GAME_STATE.IDLE or self.prevState == GAME_STATE.GAME_OVER then
+	-- Reset stats on new game: from IDLE/GAME_OVER, or after the opening dice roll
+	if self.prevState == GAME_STATE.IDLE or self.prevState == GAME_STATE.GAME_OVER
+		or (self.prevState == GAME_STATE.ROLLING and self.rollingIsNewGame) then
+		self.rollingIsNewGame = false
 		self.score = 0
 		self.waveCount = 1
 		self.timeAlive = 0
 		self.enemiesDefeated = 0
 		self.playerHealth = self.maxPlayerHealth
 		
-		if self.mainMusic then self.mainMusic:stop() end
-		self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
-		if self.mainMusic then self.mainMusic:play(0) end
+		-- Music_Game is already started in onRollingEnter; only reload if skipping the shake screen
+		if self.prevState ~= GAME_STATE.ROLLING then
+			if self.mainMusic then self.mainMusic:stop() end
+			self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
+			if self.mainMusic then self.mainMusic:play(0) end
+		end
 	end
 	-- When returning from ROLLING, keep existing stats (timer continues)
 end
@@ -241,7 +345,15 @@ end
 function GameManager:onRollingEnter()
 	
 	self.rollingPhase = ROLLING_PHASE.WAITING_FOR_SWING
-	
+
+	-- Start gameplay music on the shake screen only for new games (Play or Restart),
+	-- not for mid-run weapon rerolls where music should continue uninterrupted
+	if self.rollingIsNewGame then
+		if self.mainMusic then self.mainMusic:stop() end
+		self.mainMusic = audioManager:loadMusic("sounds/Music_Game")
+		if self.mainMusic then self.mainMusic:play(0) end
+	end
+
 	if playdate.startAccelerometer then
 		pcall(function() playdate.startAccelerometer() end)
 	end
@@ -322,31 +434,47 @@ function GameManager:onGameOverEnter()
 		playerName = "Player"
 	}
 	dataManager:addRunResult(runResult)
+
+	-- Kick off the Game -> Game Over transition animation
+	self:startGoTransition()
 end
 
 function GameManager:onPausedEnter()
 end
 
 function GameManager:calculateRollingResults()
-	local weaponIds = WeaponTypes.getIds()
+	-- Ensure we don't roll the same weapon twice in a row.
+	local weaponRoll = self.weaponDice.value
 	local prevWeapon = self.rolledWeapon
-
-	-- Build candidate list excluding the weapon just used
-	local candidates = {}
-	for _, id in ipairs(weaponIds) do
-		if id ~= prevWeapon then
-			table.insert(candidates, id)
+	local attempts = 0
+	local weaponIds = WeaponTypes.getIds()
+	local function weaponFromRoll(roll)
+		if #weaponIds == 0 then
+			return "Minigun"
 		end
-	end
-	-- Safety fallback: if somehow only one weapon exists, allow it
-	if #candidates == 0 then
-		candidates = weaponIds
+
+		local index = math.max(1, math.min(#weaponIds, roll or 1))
+		return weaponIds[index]
 	end
 
-	-- Pick uniformly from valid candidates (guaranteed different from previous)
-	self.rolledWeapon = candidates[math.random(1, #candidates)]
+	while prevWeapon and attempts < 10 do
+		local candidate = weaponFromRoll(weaponRoll)
+		if candidate ~= prevWeapon then
+			break
+		end
+		-- Reroll the weapon die and try again (bounded attempts)
+		if self.weaponDice and self.weaponDice.roll then
+			self.weaponDice:roll()
+			weaponRoll = self.weaponDice.value
+		else
+			break
+		end
+		attempts = attempts + 1
+	end
 
-	-- Calculate ammo using the ammo dice
+	self.rolledWeapon = weaponFromRoll(weaponRoll)
+
+	-- Calculate ammo based on final weaponRoll
 	self.rolledAmmo = 0
 	for _, die in ipairs(self.ammoDice) do
 		self.rolledAmmo = self.rolledAmmo + WeaponTypes.rollAmmo(self.rolledWeapon, die.value)
@@ -383,6 +511,32 @@ function GameManager:drawStateScreen(g)
 end
 
 function GameManager:drawIdleScreen(g)
+	-- ── Menu → Play transition animation ──────────────────────────────────────────────
+	-- Plays when the user picks Play; blocks input until the last frame.
+	if self.playTransitionActive then
+		local img = self.playTransitionFrames[self.playTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.playTransitionTick = self.playTransitionTick + 1
+		if self.playTransitionTick >= (self.playTransitionSpeed or 1) then
+			self.playTransitionTick = 0
+			self.playTransitionFrame = self.playTransitionFrame + 1
+		end
+
+		if self.playTransitionFrame > 9 then  -- all 9 frames played
+			self.playTransitionActive = false
+			self.rollingIsNewGame = true
+			self:setState(GAME_STATE.ROLLING)  -- dice roll before gameplay
+		end
+		return
+	end
+	-- ───────────────────────────────────────────────────────────────────
+
 	g.setColor(g.kColorWhite)
 	g.fillRect(0, 0, 400, 240)
 	g.setColor(g.kColorBlack)
@@ -390,14 +544,19 @@ function GameManager:drawIdleScreen(g)
 	if self.ui then
 		local action = self.ui:update()
 		if action == "play" then
-			-- Play button pressed - return to main loop to handle game start
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
+			self:onPlayPressed()
 		elseif action == "leaderboard" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("leaderboard")
 		elseif action == "howto" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("howto")
 		elseif action == "credits" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("credits")
 		elseif action == "back" then
+			if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
 			self.ui:setScreen("menu")
 		end
 
@@ -412,11 +571,103 @@ local function clamp(v, lo, hi)
 end
 
 function GameManager:drawGameOverScreen(g)
+	-- ── Game → Game Over transition animation ───────────────────────────────────────────────
+	-- Plays on death; blocks all input until the last frame finishes.
+	if self.goTransitionActive then
+		local img = self.goTransitionFrames[self.goTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			-- Fallback: black screen while frame is missing
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		-- Hold on frame 4 for 1 second (60 ticks) before continuing
+		if self.goTransitionFrame == 4 then
+			self.goTransitionHoldTick = (self.goTransitionHoldTick or 0) + 1
+			if self.goTransitionHoldTick >= 60 then
+				self.goTransitionHoldTick = 0
+				self.goTransitionFrame = 5  -- resume from frame 5
+			end
+		else
+			self.goTransitionTick = self.goTransitionTick + 1
+			if self.goTransitionTick >= (self.goTransitionSpeed or 1) then
+				self.goTransitionTick = 0
+				self.goTransitionFrame = self.goTransitionFrame + 1
+			end
+		end
+
+		if self.goTransitionFrame > 10 then  -- all 10 frames played
+			self.goTransitionActive = false    -- reveal the death screen
+		end
+		return
+	end
+	-- ───────────────────────────────────────────────────────────────────
+	-- ── Restart transition animation (GO → frame 07 → rolling) ────────────
+	if self.restartTransitionActive then
+		local img = self.restartTransitionFrames[self.restartTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.restartTransitionTick = self.restartTransitionTick + 1
+		if self.restartTransitionTick >= (self.restartTransitionSpeed or 1) then
+			self.restartTransitionTick = 0
+			self.restartTransitionFrame = self.restartTransitionFrame + 1
+		end
+
+		if self.restartTransitionFrame > 7 then  -- all 7 frames played
+			self.restartTransitionActive = false
+			self.rollingIsNewGame = true
+			self:setState(GAME_STATE.ROLLING)  -- dice roll before gameplay resumes
+		end
+		return
+	end
+	-- ──────────────────────────────────────────────────────────────────────
+
+	-- ── Menu transition animation ──────────────────────────────────────────────────────────────────
+	-- Runs when "Main Menu" is selected; blocks all other input/drawing.
+	if self.menuTransitionActive then
+		local img = self.menuTransitionFrames[self.menuTransitionFrame]
+		if img then
+			img:draw(0, 0)
+		else
+			-- Fallback: black screen while frame is missing
+			g.setColor(g.kColorBlack)
+			g.fillRect(0, 0, 400, 240)
+		end
+
+		self.menuTransitionTick = self.menuTransitionTick + 1
+		if self.menuTransitionTick >= (self.menuTransitionSpeed or 1) then  -- ticks per frame (1 = ~0.18s total)
+			self.menuTransitionTick = 0
+			self.menuTransitionFrame = self.menuTransitionFrame + 1
+		end
+
+		if self.menuTransitionFrame > 11 then         -- all 11 frames played
+			self.menuTransitionActive = false
+			self:setState(GAME_STATE.IDLE)            -- onIdleEnter → ui:setScreen("menu")
+		end
+		return
+	end
+	-- ──────────────────────────────────────────────────────────────────────
+
 	-- Input: Up/Down + Crank switch selection
 	if playdate.buttonJustPressed(playdate.kButtonDown) then
+		local prev = self.gameOverIndex
 		self.gameOverIndex = clamp(self.gameOverIndex + 1, 1, 2)
+		if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+			pcall(function() self.SFX_MenuHighlight:play(1) end)
+		end
 	elseif playdate.buttonJustPressed(playdate.kButtonUp) then
+		local prev = self.gameOverIndex
 		self.gameOverIndex = clamp(self.gameOverIndex - 1, 1, 2)
+		if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+			pcall(function() self.SFX_MenuHighlight:play(1) end)
+		end
 	end
 
 	local crankDelta = playdate.getCrankChange()
@@ -425,12 +676,20 @@ function GameManager:drawGameOverScreen(g)
 
 		while self.gameOverCrankAccum >= self.gameOverCrankStepDeg do
 			self.gameOverCrankAccum = self.gameOverCrankAccum - self.gameOverCrankStepDeg
+			local prev = self.gameOverIndex
 			self.gameOverIndex = clamp(self.gameOverIndex + 1, 1, 2)
+			if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+				pcall(function() self.SFX_MenuHighlight:play(1) end)
+			end
 		end
 
 		while self.gameOverCrankAccum <= -self.gameOverCrankStepDeg do
 			self.gameOverCrankAccum = self.gameOverCrankAccum + self.gameOverCrankStepDeg
+			local prev = self.gameOverIndex
 			self.gameOverIndex = clamp(self.gameOverIndex - 1, 1, 2)
+			if self.gameOverIndex ~= prev and self.SFX_MenuHighlight then
+				pcall(function() self.SFX_MenuHighlight:play(1) end)
+			end
 		end
 	end
 
@@ -541,37 +800,26 @@ function GameManager:drawRollingScreen(g)
 		g.drawTextAligned(self.rolledWeapon, 116, 112, kTextAlignment.center)
 	end
 	
-	-- Draw ammo dice (dots only, no squares) - weapon dice removed
+	-- Draw ammo dice (dots only, no squares) - all 4 in a single row
+	-- TUNE: change diceX, diceY to move the row; diceSpacing to space them out
 	if self.ammoDice and #self.ammoDice == 4 then
-		local baseX = 248
-		local baseY = 71
-		local spacing = 65
+		local diceX = 31       -- X of first die center
+		local diceY = 198      -- Y of all dice
+		local diceSpacing = 47 -- pixels between die centers
 
-		self.ammoDice[1]:draw(baseX, baseY, true, false, true)  -- 5th param = dotsOnly
-		self.ammoDice[2]:draw(baseX + spacing, baseY, true, false, true)
-		self.ammoDice[3]:draw(baseX, baseY + spacing, true, false, true)
-		self.ammoDice[4]:draw(baseX + spacing, baseY + spacing, true, false, true)
+		self.ammoDice[1]:draw(diceX, diceY, true, false, true)
+		self.ammoDice[2]:draw(diceX + diceSpacing, diceY, true, false, true)
+		self.ammoDice[3]:draw(diceX + diceSpacing*2, diceY, true, false, true)
+		self.ammoDice[4]:draw(diceX + diceSpacing*3, diceY, true, false, true)
 	end
 
-	-- Display ammo text with white background
-	local ammoText = "Ammo: " .. self.rolledAmmo
-	
-	-- ADJUST POSITION HERE:
-	local textX = 280  -- Center X position (200 = screen center)
-	local textY = 200  -- Y position
-	
-	-- Rectangle dimensions
-	local rectWidth = 100
-	local rectHeight = 20
-	local rectPadding = 5
-	
-	-- Draw white rectangle background (centered on text)
-	g.setColor(g.kColorWhite)
-	g.fillRect(textX - rectWidth/2 - rectPadding, textY - 2, rectWidth + rectPadding*2, rectHeight)
-	
-	-- Draw black text centered on top
+	-- Display ammo text inside the card box
+	-- TUNE: change ammoTextX, ammoTextY to reposition
+	local ammoText = "Ammo: " .. tostring(self.rolledAmmo)
+	local ammoTextX = 297  -- center X of the text
+	local ammoTextY = 190  -- Y of the text
 	g.setColor(g.kColorBlack)
-	g.drawTextAligned(ammoText, textX, textY, kTextAlignment.center)
+	g.drawTextAligned(ammoText, ammoTextX, ammoTextY, kTextAlignment.center)
 end
  
 function GameManager.getStateConstants()

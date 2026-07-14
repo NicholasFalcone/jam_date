@@ -20,7 +20,7 @@ local function formatSurvivalTime(seconds)
         end
     end
 
-    return string.format("%02d.%02d.%02d", minutes, secs, centiseconds)
+    return string.format("%02d:%02d:%02d", minutes, secs, centiseconds)
 end
 
 local function getEntryName(entry)
@@ -52,7 +52,11 @@ local function moveSelection(screen, delta)
         return
     end
 
+    local prevIndex = screen.selectedIndex
     screen.selectedIndex = math.max(1, math.min(totalEntries, screen.selectedIndex + delta))
+    if screen.selectedIndex ~= prevIndex and screen.SFX_MenuHighlight then
+        pcall(function() screen.SFX_MenuHighlight:play(1) end)
+    end
 
     local firstVisible = ((screen.page - 1) * screen.itemsPerPage) + 1
     local lastVisible = math.min(firstVisible + screen.itemsPerPage - 1, totalEntries)
@@ -77,9 +81,13 @@ function LeaderboardScreen:init()
     self.serverScores = nil
     self.isFetching = false
     self.backgroundImage = gfx.image.new("Sprites/Leaderboar_Background")
+    self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
+    self.crownImage      = gfx.image.new("Sprites/Crown")
     
     local audioManager = AudioManager()
-    self.SFX_ChangePage = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_ChangePage    = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
+    self.SFX_MenuHighlight = audioManager:loadSample("sounds/SFX_Menu_Highlight")
+    self.SFX_UIClick       = audioManager:loadSample("sounds/SFX_UIClick")
 end
 
 function LeaderboardScreen:setGameManager(gameManager)
@@ -110,12 +118,14 @@ function LeaderboardScreen:update()
     if playdate.buttonJustPressed(playdate.kButtonA) and not self.isFetching and self.gameManager then
         local dataManager = self.gameManager.dataManager
         if self.showingServerScores then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             self.showingServerScores = false
             self:updateLeaderboard()
             if self.SFX_ChangePage then
                 pcall(function() self.SFX_ChangePage:play(1) end)
             end
         elseif dataManager and dataManager:isOnlineSyncAvailable() then
+            if self.SFX_UIClick then pcall(function() self.SFX_UIClick:play(1) end) end
             self:fetchServerScores(dataManager)
             if self.SFX_ChangePage then
                 pcall(function() self.SFX_ChangePage:play(1) end)
@@ -230,13 +240,14 @@ function LeaderboardScreen:draw(g)
                 g.fillRect(rowX + rowW + 2, y, 4, rowH)
 
                 if isSelected then
-                    -- TRANSPARENT (dithered) highlight
-                    gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer8x8)
+                    g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
-                    gfx.setDitherPattern(1.0, gfx.image.kDitherTypeBayer8x8)
-
-                    g.setColor(g.kColorBlack)
-                    g.drawRect(rowX + 2, y + 2, rowW - 4, rowH - 4)
+                    if self.selectionImage then
+                        local imgW, imgH = self.selectionImage:getSize()
+                        local imgX = rowX + math.floor((rowW - imgW) / 2)
+                        local imgY = y + math.floor((rowH - imgH) / 2) + 2
+                        self.selectionImage:draw(imgX, imgY)
+                    end
                 else
                     g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
@@ -245,8 +256,20 @@ function LeaderboardScreen:draw(g)
                 end
 
                 g.drawTextAligned(tostring(rank), rowX + 10, y + 5, kTextAlignment.left)
-                g.drawText(getEntryName(entry), rowX + 34, y + 5)
-                g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
+                if self.showingServerScores then
+                    -- Global leaderboard: player name + time on the right (unchanged)
+                    g.drawText(getEntryName(entry), rowX + 34, y + 5)
+                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
+                else
+                    -- Local leaderboard: no player name, time centered, crown on rank 1
+                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + math.floor(rowW / 2), y + 5, kTextAlignment.center)
+                    if rank == 1 and self.crownImage then
+                        local cw, ch = self.crownImage:getSize()
+                        local cx = rowX + rowW - cw - 4
+                        local cy = y + math.floor((rowH - ch) / 2) + 1
+                        self.crownImage:draw(cx, cy)
+                    end
+                end
             end
         end
     end
@@ -255,9 +278,9 @@ function LeaderboardScreen:draw(g)
     local maxPages = math.max(1, math.ceil(totalEntries / self.itemsPerPage))
     if maxPages > 1 then
         g.setColor(g.kColorWhite)
-        g.fillRect(170, 216, 60, 16)
+        g.fillRect(170, 214, 60, 16)
         g.setColor(g.kColorBlack)
-        g.drawTextAligned(tostring(self.page) .. "/" .. tostring(maxPages), 200, 220, kTextAlignment.center)
+        g.drawTextAligned(tostring(self.page) .. "/" .. tostring(maxPages), 200, 214, kTextAlignment.center)
     end
 
     -- BUTTON HINTS REMOVED

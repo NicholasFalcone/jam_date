@@ -24,8 +24,9 @@ local enemyTypes = {
         hitboxScaleX = 2,
         hitboxOffsetY = -15,
         oscillationEnabled = true,
-        oscillationAmplitude = 0.15,
-        oscillationFrequency = 2.5,
+        oscillationAmplitude = 0.20,
+        oscillationFrequency = 2.0,
+        centerPullEnabled = true,
         animSpeed = 8,
     },
     {

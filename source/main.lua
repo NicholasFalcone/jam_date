@@ -21,6 +21,22 @@ local screenWidth = playdate.display.getWidth()
 local enemies = {}
 local gameManager = GameManager()
 
+-- Game reset logic: called by gameManager when Play is pressed, before the transition.
+gameManager.onPlayStart = function()
+    enemies = {}
+    clearMolotovProjectiles()
+    local now = playdate.getElapsedTime()
+    lastSpawnTime = now
+    spawnN = spawnNStart
+    spawnT = spawnTStart
+    enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
+    needsWeaponRoll = true  -- weapon assigned by dice roll after transition
+    Crossair:resetToCenter()
+    if currentWeapon and currentWeapon.stopAllSounds then
+        currentWeapon:stopAllSounds()
+    end
+end
+
 -- Camera shake variables
 local cameraShakeX = 0
 local cameraShakeY = 0
@@ -58,12 +74,12 @@ local spawnTStart = 5
 local spawnTEnd = 1.8
 local spawnT = spawnTStart -- T: time between spawns in seconds
 local spawnMinT = 0.2 -- minimum allowed spawn interval (seconds)
-local difficultyRampTime = 150 -- seconds to reach near-max difficulty
+local difficultyRampTime = 300 -- seconds to reach near-max difficulty
 
 local enemySpeedMin = 0.0032
 local enemySpeedMax = 0.0105
 local enemySpeedReference = 0.005
-local debugManualRoll = true
+local debugManualRoll = false
 
 --- ROAD
 local roadScrollOffset = 0
@@ -72,7 +88,7 @@ local roadWorldOffset = 0
 local roadsidePropStates = {} -- Store random scale and sprite for each roadside prop position
 local roadsidePropImages = nil
 local roadsidePropSpawnChance = 1 -- chance that a road row spawns props
-local roadsidePropBothSidesChance = 0.6 -- when spawning, chance to draw both sides
+local roadsidePropBothSidesChance = 0.3 -- when spawning, chance to draw both sides
 local roadsidePropSingleSideLeftChance = 0.50 -- for single-side rows, chance to pick left
 
 -- Internal timers
@@ -114,8 +130,9 @@ end
 local spawnPoints = computeSpawnPoints()
 
 local weaponTypes = WeaponTypes.getIds()
-local currentWeaponIndex = 1
-local currentWeapon = Weapon.new(weaponTypes[currentWeaponIndex], Crossair)
+local currentWeaponIndex = math.random(1, #weaponTypes)
+-- Create weapon with correct random ammo in a single configure pass
+local currentWeapon = Weapon(weaponTypes[currentWeaponIndex], WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex]), Crossair)
 
 local UI = UI()
 UI:setGameManager(gameManager)
@@ -173,8 +190,14 @@ local function processMolotovProjectiles()
                 end
             end
 
-            for _, e in ipairs(hitEnemies) do
-                e:applyHit(projectile.damage)
+            -- Cap at 3 enemies per throw
+            local hitCap = 3
+            for i2 = 1, math.min(hitCap, #hitEnemies) do
+                hitEnemies[i2]:applyHit(projectile.damage)
+            end
+            -- Trigger crosshair hit animation when projectile lands
+            if Crossair and Crossair.triggerMolotovHitAnim then
+                Crossair:triggerMolotovHitAnim()
             end
 
             table.remove(molotovProjectiles, i)
@@ -228,7 +251,7 @@ function updateEnemies()
     -- Smooth progression: starts easy and ramps with survival time.
     local aliveSeconds = (gameManager and gameManager.timeAlive) or 0
     local progress = clamp(aliveSeconds / difficultyRampTime, 0, 1)
-    local eased = progress
+    local eased = progress ^ 0.5
     local speedProgress = clamp(aliveSeconds / 300, 0, 1)
     
     spawnN = clamp(math.floor(spawnNStart + eased * (spawnNEnd - spawnNStart)), 1, #spawnPoints)
@@ -256,6 +279,35 @@ function updateEnemies()
             local idx = freeIndices[i]
             local lane = spawnPoints[idx]
             local enemyType = EnemyTypes.rollSpawnType()
+
+            -- Enemy_02 (raider): spawn in one of 3 fixed centre lanes so it
+            -- arrives in screen sections 2-3-4 (out of 5) at the player position.
+            -- Lane fractions are based on w=300px at distance=0:
+            --   section 2 center → x=120 → lane=-0.267
+            --   section 3 center → x=200 → lane= 0.000
+            --   section 4 center → x=280 → lane=+0.267
+            if enemyType.id == "raider" then
+                -- Restrict raider to centre slots (indices 2-5 of 6) = screen sections 2-3-4
+                local centreIndices = {2, 3, 4, 5}
+                -- shuffle
+                for ci = #centreIndices, 2, -1 do
+                    local cj = math.random(1, ci)
+                    centreIndices[ci], centreIndices[cj] = centreIndices[cj], centreIndices[ci]
+                end
+                -- pick first free centre slot
+                local picked = false
+                for _, ci in ipairs(centreIndices) do
+                    if not occupied[ci] then
+                        occupied[ci] = true
+                        idx  = ci
+                        lane = spawnPoints[ci]
+                        picked = true
+                        break
+                    end
+                end
+                -- if all centre slots taken, keep original slot as fallback
+            end
+
             local e = Enemy(enemyType, lane, enemySpeedMultiplier, idx, enemyHealthMultiplier)
             table.insert(enemies, e)
         end
@@ -369,8 +421,13 @@ function updateEnemies()
         end
     end
     
-    -- Check if out of ammo
-    if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0 and not needsWeaponRoll then
+    -- Check if out of ammo.
+    -- For the Molotov: wait until all in-flight projectiles have landed before
+    -- switching to the dice roll, so the last throw can still hit enemies.
+    local molotovStillInFlight = (currentWeapon and currentWeapon.weaponType == "Molotov")
+                                  and (#molotovProjectiles > 0)
+    if currentWeapon and currentWeapon.Ammo and currentWeapon.Ammo <= 0
+            and not needsWeaponRoll and not molotovStillInFlight then
         needsWeaponRoll = true
         clearMolotovProjectiles()
         gameManager:setState("rolling")
@@ -421,26 +478,6 @@ function playdate.update()
             needsWeaponRoll = true
             clearMolotovProjectiles()
             gameManager:setState("rolling")
-        elseif gameManager:isIdle() then
-            -- Reset game state and enemy list before starting
-            enemies = {}
-            clearMolotovProjectiles()
-            -- Reset spawn manager variables
-            local now = playdate.getElapsedTime()
-            lastSpawnTime = now
-            spawnN = spawnNStart  -- Start with fewer enemies
-            spawnT = spawnTStart  -- Reset spawn interval
-            enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
-            needsWeaponRoll = false
-            
-            -- Start with random weapon and random ammo
-            currentWeaponIndex = math.random(1, #weaponTypes)
-            local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
-            currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
-            
-            Crossair:resetToCenter()
-
-            gameManager:setState("running")
         elseif gameManager:isRolling() then
             -- Apply rolling results and return to running state
             -- Only allow transition if dice have been rolled (RESULTS phase)
@@ -456,29 +493,36 @@ function playdate.update()
                 needsWeaponRoll = false
                 gameManager:setState("running")
             end
-        elseif gameManager:isGameOver() then
-            -- Complete reset when going back from game over
+        elseif gameManager:isGameOver() and not gameManager:isTransitioning() then
+            -- Play click sound on confirm
+            if gameManager.SFX_UIClick then pcall(function() gameManager.SFX_UIClick:play(1) end) end
+            -- Shared cleanup
             enemies = {}
             clearMolotovProjectiles()
             needsWeaponRoll = false
-            -- Reset spawn variables
             local now = playdate.getElapsedTime()
             lastSpawnTime = now
             spawnN = spawnNStart
             spawnT = spawnTStart
             enemySpeedMultiplier = enemySpeedMin / enemySpeedReference
-            
-            -- Reset weapon to random selection with random ammo
+
+            -- Reset weapon
             currentWeaponIndex = math.random(1, #weaponTypes)
             if currentWeapon and currentWeapon.stopAllSounds then
                 currentWeapon:stopAllSounds()
             end
             local randomAmmo = WeaponTypes.getRandomStartingAmmo(weaponTypes[currentWeaponIndex])
             currentWeapon:setType(weaponTypes[currentWeaponIndex], randomAmmo)
-            
             Crossair:resetToCenter()
 
-            gameManager:setState("idle")
+            if gameManager.gameOverIndex == 2 then
+                -- "Main Menu" → transition back to menu
+                gameManager:startMenuTransition()
+            else
+                -- "Play Again" → restart transition then dice roll
+                needsWeaponRoll = true
+                gameManager:startRestartTransition()
+            end
         end
     end
 
@@ -572,23 +616,20 @@ function drawRoad()
     -- Ogni riga mondo scorre lungo Y in modo continuo e viene sostituita
     -- solo quando supera il player o quando entra dall'orizzonte.
     local worldRows = roadWorldOffset / 8
-    local firstRow = math.floor(worldRows / 3) * 3 - 9
+    local firstRow = math.floor(worldRows / 5) * 5 - 10
     pruneRoadsidePropStates(firstRow - 20, firstRow + 120)
 
-    for rowIndex = firstRow, firstRow + 80, 3 do
+    for rowIndex = firstRow, firstRow + 80, 5 do
         local rowPhase = (rowIndex - worldRows) * 0.08
         if rowPhase > 0 and rowPhase < 1 then
-            -- Per-row depth jitter: shifts each prop slightly closer or farther
-            local depthJitter = math.sin(rowIndex * 47.853 + 23.17) * 0.07
-            local drawPhase = math.max(0.01, math.min(0.99, rowPhase + depthJitter))
-            local y = horizonY + (drawPhase * drawPhase) * (groundY - horizonY)
-            local w = topW + (drawPhase * drawPhase) * (botW - topW)
-            local propHeight = 10 + drawPhase * 40
-            local propWidth = 3 + drawPhase * 8
+            local y = horizonY + (rowPhase * rowPhase) * (groundY - horizonY)
+            local w = topW + (rowPhase * rowPhase) * (botW - topW)
+            local propHeight = 10 + rowPhase * 40
+            local propWidth = 3 + rowPhase * 8
 
             local spawnRoll = math.abs(math.sin(rowIndex * 12.9898 + 78.233))
             local bothRoll = math.abs(math.sin(rowIndex * 39.3467 + 11.135))
-            local sideRoll = math.abs(math.sin(rowIndex * 73.156 + 52.77))
+            local sideRoll = (math.abs(math.sin(rowIndex * 73.156 + 52.77)) * 43758.5453) % 1.0  -- uniform [0,1] hash for balanced left/right
 
             local drawLeft = false
             local drawRight = false
@@ -604,10 +645,8 @@ function drawRoad()
                 end
             end
 
-            -- Per-row horizontal scatter: pushes props further left/right by a varying amount
-            local hExtra = math.abs(math.sin(rowIndex * 19.73 + 41.5)) * 28
-            local leftPropX = centerX - w - propWidth * 2 - hExtra
-            local rightPropX = centerX + w + propWidth * 2 + hExtra
+            local leftPropX = centerX - w - propWidth * 2
+            local rightPropX = centerX + w + propWidth * 2
 
             if drawLeft and leftPropX > -20 and leftPropX < (screenWidth + 20) then
                 local leftKey = "L" .. rowIndex
@@ -639,7 +678,9 @@ function getRoadsidePropImages()
             "Sprites/Prop2",
             "Sprites/Prop3",
             "Sprites/Prop4",
-            "Sprites/Prop5"
+            "Sprites/Prop5",
+            "Sprites/Prop6",
+            "Sprites/Prop7"
         }
 
         for _, path in ipairs(propPaths) do
@@ -656,12 +697,17 @@ end
 function createRoadsidePropState()
     local images = getRoadsidePropImages()
     local image = nil
+    local imageIndex = nil
     if images and #images > 0 then
-        image = images[math.random(1, #images)]
+        imageIndex = math.random(1, #images)
+        image = images[imageIndex]
     end
 
+    -- Prop5 is index 5 in the list; it should not have random scale
+    local randomScale = (imageIndex == 5) and 1.0 or (0.6 + math.random() * 0.4)
+
     return {
-        scale = 0.6 + math.random() * 0.4,
+        scale = randomScale,
         image = image
     }
 end
