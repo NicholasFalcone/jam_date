@@ -29,6 +29,39 @@ local function getCachedEnemyFrames(spritePath)
     return frames
 end
 
+local function getCachedAttackFrames(spritePath)
+    if not spritePath then return nil end
+    local cacheKey = spritePath .. "_Attack"
+    if enemyFramesCacheByPath[cacheKey] then
+        return enemyFramesCacheByPath[cacheKey]
+    end
+    
+    -- Extract sprite name (e.g., "Enemy_02" from "Sprites/Enemies/Enemy_02")
+    local spriteName = spritePath:match("([^/]+)$") or ""
+    if spriteName == "" then return nil end
+    
+    local frames = {}
+    -- Load up to 20 frames sequentially
+    for i = 1, 20 do
+        local frameName = "Sprites/Enemies/AttackAnimations/" .. spriteName .. "_Attack_" .. string.format("%02d", i)
+        local img = gfx.image.new(frameName)
+        if img then
+            table.insert(frames, img)
+        else
+            -- Check without format padding just in case
+            local imgAlt = gfx.image.new("Sprites/Enemies/AttackAnimations/" .. spriteName .. "_Attack_" .. tostring(i))
+            if imgAlt then
+                table.insert(frames, imgAlt)
+            else
+                break
+            end
+        end
+    end
+    if #frames == 0 then frames = nil end
+    enemyFramesCacheByPath[cacheKey] = frames
+    return frames
+end
+
 function Enemy:init(enemyType, lane, speedMultiplier, spawnIndex, healthMultiplier)
     self:reset(enemyType, lane, speedMultiplier, spawnIndex, healthMultiplier)
 end
@@ -75,6 +108,14 @@ function Enemy:reset(enemyType, lane, speedMultiplier, spawnIndex, healthMultipl
         self.SFX_Hit = audioManager:loadSample("sounds/SFX_EnemyHit")
     end
     self.enemyGoalPosition = -0.2
+
+    self.isAttacking = false
+    self.attackAnimFrameIndex = 1
+    self.attackTick = 0
+    self.attackFrames = getCachedAttackFrames(resolvedType.spritePath)
+    if not self.SFX_ReachPlayer then
+        self.SFX_ReachPlayer = audioManager:loadSample("sounds/SFX_EnemyReachesPlayer")
+    end
 
     local frames = getCachedEnemyFrames(resolvedType.spritePath) or getCachedEnemyFrames("Sprites/Enemies/Enemy_01")
     self.animFrames = frames
@@ -139,46 +180,86 @@ function Enemy:update(playerRotation, crossX, crossY, weapon, gameManager)
     end
 
     if not self.isDead then
-    local spawnDist  = 0.85          -- matches self.distance initial value
-    local goalDist   = self.enemyGoalPosition  -- -0.2
-    local t = 1.0 - ((self.distance - goalDist) / (spawnDist - goalDist))
-    t = math.max(0, math.min(1, t))  -- clamp 0→1
-        local currentSpeed = self.speed * (1.0 - t * 0.5)
-    self.distance -= currentSpeed
-        -- Advance ping-pong animation
-        self.animTick += 1
-        if self.animTick >= self.animSpeed then
-            self.animTick = 0
-            self.animPhase = (self.animPhase % #ANIM_SEQUENCE) + 1
-        end
-
-        -- Aggiorna l'oscillazione se abilitata
-        if self.oscillationEnabled then
-            self.oscillationTime += self.oscillationFrequency * 0.05
-            self.oscillationOffset = math.sin(self.oscillationTime) * self.oscillationAmplitude
-        end
-
-        -- Center pull: keep raider on a fixed screen-X target by back-calculating
-        -- the required lane fraction from the current road width each frame.
-        -- targetX is chosen at spawn from sections 2/3/4 (x=120,200,280).
-        if self.centerPullEnabled and self.centerPullTargetX then
-            local horizonY2 = 112
-            local groundY2  = 240
-            local scale2 = 1.0 - self.distance
-            local sq2    = scale2 * scale2
-            local topW2  = 30
-            local botW2  = 300
-            local w2 = topW2 + sq2 * (botW2 - topW2)
-            if w2 > 0 then
-                self.lane = (self.centerPullTargetX - 200) / w2
+        if self.isAttacking then
+            self.attackTick += 1
+            if self.attackFrames then
+                -- Dedicated attack animation
+                if self.attackTick >= 2 then -- 2 ticks per frame
+                    self.attackTick = 0
+                    self.attackAnimFrameIndex += 1
+                    if self.attackAnimFrameIndex > #self.attackFrames then
+                        -- Attack completed! Deal damage and die
+                        if gameManager then
+                            gameManager:takeDamage(100)
+                        end
+                        if self.SFX_ReachPlayer then
+                            pcall(function() self.SFX_ReachPlayer:play(1) end)
+                        end
+                        self.isDead = true
+                        self.isAttacking = false
+                    end
+                end
+            else
+                -- Fallback attack: stay in-place and run regular walk animation for 22 ticks
+                self.animTick += 1
+                if self.animTick >= self.animSpeed then
+                    self.animTick = 0
+                    self.animPhase = (self.animPhase % #ANIM_SEQUENCE) + 1
+                end
+                
+                if self.attackTick >= 22 then
+                    -- Attack completed! Deal damage and die
+                    if gameManager then
+                        gameManager:takeDamage(100)
+                    end
+                    if self.SFX_ReachPlayer then
+                        pcall(function() self.SFX_ReachPlayer:play(1) end)
+                    end
+                    self.isDead = true
+                    self.isAttacking = false
+                end
             end
-        end
-        
-        if self.distance <= self.enemyGoalPosition then
-            if gameManager then
-                gameManager:takeDamage(100)
+        else
+            local spawnDist  = 0.85          -- matches self.distance initial value
+            local goalDist   = self.enemyGoalPosition  -- -0.2
+            local t = 1.0 - ((self.distance - goalDist) / (spawnDist - goalDist))
+            t = math.max(0, math.min(1, t))  -- clamp 0→1
+            local currentSpeed = self.speed * (1.0 - t * 0.5)
+            self.distance -= currentSpeed
+            -- Advance ping-pong animation
+            self.animTick += 1
+            if self.animTick >= self.animSpeed then
+                self.animTick = 0
+                self.animPhase = (self.animPhase % #ANIM_SEQUENCE) + 1
             end
-            self.isDead = true
+
+            -- Aggiorna l'oscillazione se abilitata
+            if self.oscillationEnabled then
+                self.oscillationTime += self.oscillationFrequency * 0.05
+                self.oscillationOffset = math.sin(self.oscillationTime) * self.oscillationAmplitude
+            end
+
+            -- Center pull: keep raider on a fixed screen-X target by back-calculating
+            -- the required lane fraction from the current road width each frame.
+            -- targetX is chosen at spawn from sections 2/3/4 (x=120,200,280).
+            if self.centerPullEnabled and self.centerPullTargetX then
+                local horizonY2 = 112
+                local groundY2  = 240
+                local scale2 = 1.0 - self.distance
+                local sq2    = scale2 * scale2
+                local topW2  = 30
+                local botW2  = 300
+                local w2 = topW2 + sq2 * (botW2 - topW2)
+                if w2 > 0 then
+                    self.lane = (self.centerPullTargetX - 200) / w2
+                end
+            end
+            
+            if self.distance <= self.enemyGoalPosition then
+                self.isAttacking = true
+                self.attackAnimFrameIndex = 1
+                self.attackTick = 0
+            end
         end
     else
         if self.deathTimer > 0 then
@@ -221,7 +302,12 @@ function Enemy:checkHit(playerRotation, crossX, crossY, weapon)
     local typeHitboxScaleX  = (self.enemyType and self.enemyType.hitboxScaleX)  or 1.0
     local typeHitboxOffsetY = (self.enemyType and self.enemyType.hitboxOffsetY) or 0
 
-    local sw, sh = self.spriteWidth, self.spriteHeight
+    local sw, sh
+    if self.isAttacking and self.attackFrames and self.attackFrames[self.attackAnimFrameIndex] then
+        sw, sh = self.attackFrames[self.attackAnimFrameIndex]:getSize()
+    else
+        sw, sh = self.spriteWidth, self.spriteHeight
+    end
     local scaledWidth  = sw * scale * typeHitboxScale * typeHitboxScaleX
     local scaledHeight = sh * scale * typeHitboxScale
     local ey_center    = ey - (sh * scale) / 2 + typeHitboxOffsetY * scale
@@ -269,6 +355,7 @@ function Enemy:applyHit(dmg)
 		
         if self.health <= 0 then
             self.isDead = true
+            self.isAttacking = false
             self.killedByPlayer = true
             
             -- Set death timer based on how many explosion frames we have (2 ticks per frame)
@@ -336,10 +423,16 @@ function Enemy:draw(playerRotation)
             gfx.fillCircleAtPoint(x, y - size/2, size)
         end
     else
-        local frameIdx = ANIM_SEQUENCE[self.animPhase] or 1
-        local drawFrame = (self.animFrames and self.animFrames[frameIdx]) or self.sprite
+        local drawFrame
+        if self.isAttacking and self.attackFrames then
+            drawFrame = self.attackFrames[self.attackAnimFrameIndex]
+        else
+            local frameIdx = ANIM_SEQUENCE[self.animPhase] or 1
+            drawFrame = (self.animFrames and self.animFrames[frameIdx]) or self.sprite
+        end
+
         if drawFrame and scale > 0 then
-            local sw, sh = self.spriteWidth, self.spriteHeight
+            local sw, sh = drawFrame:getSize()
             local scaledWidth = sw * scale
             local scaledHeight = sh * scale
             drawFrame:drawScaled(x - scaledWidth/2, y - scaledHeight, scale, scale)
