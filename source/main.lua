@@ -409,7 +409,7 @@ function updateEnemies()
             end
             e:die()
             table.remove(enemies, i)
-        elseif e.distance <= -0.2 and not e.isAttacking then
+        elseif not e.isDead and e.distance <= -0.2 and not e.isAttacking then
             table.remove(enemies, i)
         end
     end
