@@ -736,7 +736,12 @@ end
 
 
 function drawEnemies()
-    for i = #enemies, 1, -1 do
+    -- Ordinamento dei nemici: dal più lontano (distance maggiore) al più vicino (distance minore)
+    -- per il corretto rendering in profondità (Painter's Algorithm).
+    table.sort(enemies, function(a, b)
+        return (a.distance or 0) > (b.distance or 0)
+    end)
+    for i = 1, #enemies do
         enemies[i]:draw(playerRotation)
         enemies[i]:drawDebugHitbox()
     end
