@@ -738,8 +738,14 @@ end
 function drawEnemies()
     -- Ordinamento dei nemici: dal più lontano (distance maggiore) al più vicino (distance minore)
     -- per il corretto rendering in profondità (Painter's Algorithm).
+    -- Usiamo anche l'ID univoco come fallback stabile per evitare flickering duranti incroci o spawn simultanei.
     table.sort(enemies, function(a, b)
-        return (a.distance or 0) > (b.distance or 0)
+        local distA = a.distance or 0
+        local distB = b.distance or 0
+        if math.abs(distA - distB) < 0.0001 then
+            return (a.id or 0) < (b.id or 0)
+        end
+        return distA > distB
     end)
     for i = 1, #enemies do
         enemies[i]:draw(playerRotation)

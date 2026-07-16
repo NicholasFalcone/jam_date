@@ -14,6 +14,8 @@ local explosionSizesCache = nil
 -- Ping-pong animation sequence: frame indices 1→2→3→2→1…
 local ANIM_SEQUENCE = {1, 2, 3, 2}
 
+local nextEnemyId = 1
+
 local function getCachedEnemyFrames(spritePath)
     if not spritePath then return nil end
     if enemyFramesCacheByPath[spritePath] then
@@ -73,6 +75,9 @@ function Enemy:reset(enemyType, lane, speedMultiplier, spawnIndex, healthMultipl
     -- draw/update so enemies always follow the curving road parallels.
     local resolvedType = enemyType or EnemyTypes.getAll()[1]
     local resolvedHealthMultiplier = healthMultiplier or 1
+
+    self.id = nextEnemyId
+    nextEnemyId = nextEnemyId + 1
 
     self.enemyType = resolvedType
     self.enemyTypeId = resolvedType.id or "enemy"
