@@ -93,17 +93,14 @@ function LeaderboardScreen:init()
         print("LeaderboardScreen: failed to load background image 'Leaderboar_Background' - check it's in source/Sprites/ and that you rebuilt the pdx")
     end
 
-    local overlayPathsToTry = {
-        "Sprites/Leaderbard_Text_Local",
-        "sprites/Leaderbard_Text_Local",
-        "Leaderbard_Text_Local"
-    }
-    for _, path in ipairs(overlayPathsToTry) do
-        self.overlayImage = gfx.image.new(path)
-        if self.overlayImage then break end
+    self.overlayLocal = gfx.image.new("Sprites/Leaderbard_Text_Local")
+    self.overlayGlobal = gfx.image.new("Sprites/Leaderbard_Text_Global")
+    
+    if not self.overlayLocal then
+        print("LeaderboardScreen: failed to load 'Sprites/Leaderbard_Text_Local'")
     end
-    if not self.overlayImage then
-        print("LeaderboardScreen: failed to load overlay image 'Leaderbard_Text_Local' - check it's in source/Sprites/ and that you rebuilt the pdx")
+    if not self.overlayGlobal then
+        print("LeaderboardScreen: failed to load 'Sprites/Leaderbard_Text_Global'")
     end
     self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
     self.crownImage      = gfx.image.new("Sprites/Crown")
@@ -227,8 +224,9 @@ function LeaderboardScreen:draw(g)
         g.setColor(g.kColorWhite)
         g.fillRect(0, 0, 400, 240)
     end
-    if self.overlayImage then
-        self.overlayImage:draw(0, 0)
+    local currentOverlay = self.showingServerScores and self.overlayGlobal or self.overlayLocal
+    if currentOverlay then
+        currentOverlay:draw(0, 0)
     end
 
     -- REMOVED TOP WHITE RECTANGLES
