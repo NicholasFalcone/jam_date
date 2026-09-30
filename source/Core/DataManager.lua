@@ -1,7 +1,7 @@
 class('DataManager').extends()
 
 -- Constants
-local DATA_FOLDER = "jam_date_data"
+local DATA_FOLDER = "com.quattrogatti.railgunner"
 local LEADERBOARD_STATE_FILE = "leaderboard_state"
 local LEADERBOARD_FILE = "leaderboard"
 local LEADERBOARD_META_FILE = "leaderboard_meta"
@@ -12,7 +12,7 @@ local MAX_LEADERBOARD_ENTRIES = 50
 
 -- Scoreboard configuration - these need to match what you create in Panic's Dev Portal
 -- IMPORTANT: Set your game's bundle ID in pdxinfo
-local SCOREBOARD_ID = "railgunnerscoreleaderboard1"  -- Set this to your Panic Dev Portal board ID to enable online sync
+local SCOREBOARD_ID = "railgunner1"  -- Set this to your Panic Dev Portal board ID to enable online sync
 local USE_PLAYDATE_SCOREBOARD = true  -- Set to false to disable online syncing
 
 local function logDataManager(message)
@@ -37,11 +37,43 @@ function DataManager:init()
     
     self:ensureDataFolder()
     self:loadState()
-    
+    print("[DataManager:init] Scoreboard configured:", isScoreboardConfigured())
+    print("[DataManager:init] Checking playdate.scoreboards presence:", playdate.scoreboards ~= nil)
     -- Try to sync with Playdate scoreboards on init
     if isScoreboardConfigured() and playdate.scoreboards then
         self:syncLocalToServer()
     end
+    
+
+    if playdate.scoreboards then
+        print("[TEST SDK] Chiamata a getPersonalBest...")
+        playdate.scoreboards.getPersonalBest(SCOREBOARD_ID, function(status, result)
+            print("[TEST getPersonalBest] code:", status and status.code, "| message:", status and status.message)
+        end)
+    end
+
+    if isScoreboardConfigured() and playdate.scoreboards then
+        playdate.scoreboards.addScore(SCOREBOARD_ID, 100, function(status, result)
+            print("[TEST addScore] code:", status and status.code, "| message:", status and status.message)
+            if result then
+                print("[TEST addScore] rank:", result.rank, "value:", result.value)
+            end
+        end)
+    end
+
+
+    playdate.scoreboards.getScoreboards(function(status, result)
+        print("[TEST getScoreboards] code:", status and status.code)
+        if result and result.boards then
+            for i, board in ipairs(result.boards) do
+                print("  board", i)
+                for k, v in pairs(board) do
+                    print("     ", k, v)
+                end
+            end
+        end
+    end)
+
 end
 
 -- Ensure data folder exists
@@ -241,10 +273,16 @@ end
 
 -- Post score to Playdate's online scoreboard
 function DataManager:postScoreToServer(score)
-    if not isScoreboardConfigured() or not playdate.scoreboards or self.syncInProgress then
+    if not isScoreboardConfigured() or not playdate.scoreboards then
+        print("[DataManager:postScoreToServer] Annullato: Scoreboard non configurata")
         return
     end
     
+    if self.syncInProgress then
+        print("[DataManager:postScoreToServer] Annullato: syncInProgress è già true")
+        return
+    end
+
     self.syncInProgress = true
     
     playdate.scoreboards.addScore(SCOREBOARD_ID, score, function(status, result)
@@ -253,6 +291,7 @@ function DataManager:postScoreToServer(score)
         if status and status.code == "OK" then
             -- Successfully posted
         elseif status and status.message then
+            print("Failed to post score to server: " .. tostring(status.message))
             -- Network error or other issue - that's fine, it'll be queued locally
         end
     end)
@@ -260,29 +299,51 @@ end
 
 -- Fetch scores from Playdate's server and merge with local data
 function DataManager:fetchScoresFromServer(callback)
+print("[DataManager:fetchScoresFromServer] Inizio fetch. syncInProgress status:", self.syncInProgress)
+    
     if not isScoreboardConfigured() or not playdate.scoreboards then
+        print("[DataManager:fetchScoresFromServer] Errore: scoreboards non disponibili")
         if callback then callback(nil, "Scoreboards not available") end
         return
     end
     
     if self.syncInProgress then
-        if callback then callback(nil, "Sync already in progress") end
-        return
+        print("[DataManager:fetchScoresFromServer] BLOCCATO! syncInProgress è ancora TRUE da una chiamata precedente. Forzo il reset...")
+        -- Sblocchiamo forzatamente per permettere il test manuale
+        self.syncInProgress = false
     end
     
     self.syncInProgress = true
+    print("[DataManager:fetchScoresFromServer] Invio richiesta getScores per board:", SCOREBOARD_ID)
+    print("[DataManager] Invio richiesta getScores per board:", SCOREBOARD_ID)
+
+   playdate.scoreboards.getScores(SCOREBOARD_ID, 1, function(status, result)
+    self.syncInProgress = false
+    print("[DataManager:fetchScoresFromServer] RISPOSTA RICEVUTA DAL SERVER!")
     
-    playdate.scoreboards.getScores(SCOREBOARD_ID, function(status, result)
-        self.syncInProgress = false
+    if status then
+        print("  -> Status Code:", status.code)
+    end
+    
+    if status and status.code == "OK" and result then
+        print("  -> Board ID:", result.boardID)
+        print("  -> Numero scores ricevuti:", result.scores and #result.scores or 0)
         
-        if status and status.code == "OK" and result then
-            -- Successfully fetched server scores
-            if callback then callback(result, nil) end
+        -- Stampiamo il primo punteggio per vederne la struttura
+        if result.scores and #result.scores > 0 then
+            local first = result.scores[1]
+            print("  -> Primo Score -> Player:", first.player, "| Value:", first.value, "| Rank:", first.rank)
         else
-            local errorMsg = (status and status.message) or "Unknown error"
-            if callback then callback(nil, errorMsg) end
+            print("  -> La classifica online è attualmente VUOTA sul server.")
         end
-    end)
+        
+        if callback then callback(result, nil) end
+    else
+        local errorMsg = (status and status.message) or (status and status.code) or "Unknown error"
+        print("[DataManager:fetchScoresFromServer] FALLITO:", errorMsg)
+        if callback then callback(nil, errorMsg) end
+    end
+end)
 end
 
 -- Sync local scores to server (post any new local scores)
