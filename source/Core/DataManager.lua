@@ -1,7 +1,7 @@
 class('DataManager').extends()
 
 -- Constants
-local DATA_FOLDER = "jam_date_data"
+local DATA_FOLDER = "com.quattrogatti.railgunner"
 local LEADERBOARD_STATE_FILE = "leaderboard_state"
 local LEADERBOARD_FILE = "leaderboard"
 local LEADERBOARD_META_FILE = "leaderboard_meta"
@@ -12,7 +12,7 @@ local MAX_LEADERBOARD_ENTRIES = 50
 
 -- Scoreboard configuration - these need to match what you create in Panic's Dev Portal
 -- IMPORTANT: Set your game's bundle ID in pdxinfo
-local SCOREBOARD_ID = "railgunnerscoreleaderboard1"  -- Set this to your Panic Dev Portal board ID to enable online sync
+local SCOREBOARD_ID = "railgunner1"  -- Set this to your Panic Dev Portal board ID to enable online sync
 local USE_PLAYDATE_SCOREBOARD = true  -- Set to false to disable online syncing
 
 local function logDataManager(message)
