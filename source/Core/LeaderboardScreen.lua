@@ -102,8 +102,9 @@ function LeaderboardScreen:init()
     if not self.overlayGlobal then
         print("LeaderboardScreen: failed to load 'Sprites/Leaderbard_Text_Global'")
     end
-    self.selectionImage  = gfx.image.new("Sprites/Leaderboar_Selection")
-    self.crownImage      = gfx.image.new("Sprites/Crown")
+    self.selectionImage       = gfx.image.new("Sprites/Leaderboar_Selection")
+    self.selectionGlobalImage = gfx.image.new("Sprites/Leaderboar_Selection_Global") -- NEW: global-only box
+    self.crownImage           = gfx.image.new("Sprites/Crown")
     
     local audioManager = AudioManager()
     self.SFX_ChangePage    = audioManager:loadSample("sounds/SFX_Ui_ChangePage")
@@ -238,6 +239,15 @@ function LeaderboardScreen:draw(g)
     local rowH = 26
     local rowGap = 6
     local startY = 58
+
+    -- CHANGED: global uses the new box and takes its width (row re-centered)
+    local selImg = self.selectionImage
+    if self.showingServerScores and self.selectionGlobalImage then
+        selImg = self.selectionGlobalImage
+        rowW = selImg:getSize()
+        rowX = 200 - math.floor(rowW / 2)
+    end
+
     local startIdx = ((self.page - 1) * self.itemsPerPage) + 1
     local endIdx = math.min(startIdx + self.itemsPerPage - 1, #self.leaderboard)
     
@@ -267,11 +277,11 @@ function LeaderboardScreen:draw(g)
                 if isSelected then
                     g.setColor(g.kColorWhite)
                     g.fillRect(rowX, y, rowW, rowH)
-                    if self.selectionImage then
-                        local imgW, imgH = self.selectionImage:getSize()
+                    if selImg then -- CHANGED: selImg instead of self.selectionImage
+                        local imgW, imgH = selImg:getSize()
                         local imgX = rowX + math.floor((rowW - imgW) / 2)
                         local imgY = y + math.floor((rowH - imgH) / 2) + 2
-                        self.selectionImage:draw(imgX, imgY)
+                        selImg:draw(imgX, imgY)
                     end
                 else
                     g.setColor(g.kColorWhite)
@@ -280,11 +290,13 @@ function LeaderboardScreen:draw(g)
                     g.drawRect(rowX, y, rowW, rowH)
                 end
 
-                g.drawTextAligned(tostring(rank), rowX + 10, y + 5, kTextAlignment.left)
+                -- CHANGED: 3px inner padding on left/right (global only)
+                local pad = self.showingServerScores and 7 or 0
+                local textY = y + (self.showingServerScores and 6 or 5) -- CHANGED: global text 1px lower
+                g.drawTextAligned(tostring(rank), rowX + 10 + pad, textY, kTextAlignment.left)
                 if self.showingServerScores then
-                    -- Global leaderboard: player name + time on the right (unchanged)
-                    g.drawText(getEntryName(entry), rowX + 34, y + 5)
-                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 10, y + 5, kTextAlignment.right)
+                    g.drawText(getEntryName(entry), rowX + 26 + pad, textY)
+                    g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + rowW - 8 - pad, textY, kTextAlignment.right)
                 else
                     -- Local leaderboard: no player name, time centered, crown on rank 1
                     g.drawTextAligned(formatSurvivalTime(entry.timeAlive), rowX + math.floor(rowW / 2), y + 5, kTextAlignment.center)
